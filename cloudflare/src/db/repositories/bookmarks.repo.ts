@@ -196,6 +196,9 @@ export type UpdateBookmarkInput = {
     isArchived?: boolean;
     unread?: boolean;
     shared?: boolean;
+    faviconKey?: string;
+    previewImageKey?: string;
+    latestSnapshotAssetId?: number;
   };
 };
 
@@ -225,6 +228,11 @@ export async function updateBookmark(
   if (input.patch.isArchived !== undefined) updates.isArchived = input.patch.isArchived;
   if (input.patch.unread !== undefined) updates.unread = input.patch.unread;
   if (input.patch.shared !== undefined) updates.shared = input.patch.shared;
+  if (input.patch.faviconKey !== undefined) updates.faviconKey = input.patch.faviconKey;
+  if (input.patch.previewImageKey !== undefined)
+    updates.previewImageKey = input.patch.previewImageKey;
+  if (input.patch.latestSnapshotAssetId !== undefined)
+    updates.latestSnapshotAssetId = input.patch.latestSnapshotAssetId;
 
   await db.update(bookmarks).set(updates).where(eq(bookmarks.id, input.id));
   return getBookmarkByIdForAnyOwner(d1, input.id);
