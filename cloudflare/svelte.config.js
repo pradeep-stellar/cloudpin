@@ -21,7 +21,9 @@ const config = {
       $validation: 'src/validation',
       '$validation/*': 'src/validation/*',
       $server: 'src/server',
-      '$server/*': 'src/server/*'
+      '$server/*': 'src/server/*',
+      $storage: 'src/storage',
+      '$storage/*': 'src/storage/*'
     }
   }
 };

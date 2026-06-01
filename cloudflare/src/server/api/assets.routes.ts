@@ -9,6 +9,7 @@ import {
 import { getBookmarkById } from '../../db/repositories/bookmarks.repo';
 import { r2Keys } from '../../storage/asset-keys';
 import { deleteObject, getObjectStream, putObject } from '../../storage/r2';
+import { cspForContentType } from '../../storage/content-security';
 
 type AuthUser = { id: number; email: string; username: string; isAdmin: boolean };
 
@@ -22,13 +23,6 @@ type AssetsEnv = {
 };
 
 const UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
-
-function cspForContentType(ct: string): string {
-  if (ct.startsWith('image/')) return "default-src 'none'";
-  if (ct === 'application/pdf') return "default-src 'none'; object-src 'self';";
-  if (ct === 'text/html') return 'sandbox allow-scripts';
-  return "default-src 'none'";
-}
 
 export const assetsRouter = new Hono<AssetsEnv>();
 

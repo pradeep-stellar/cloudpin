@@ -84,6 +84,31 @@ export async function getAssetForBookmark(
   return rows[0] ?? null;
 }
 
+export type AssetWithBookmark = AssetRow & {
+  bookmarkOwnerId: number;
+  bookmarkShared: boolean;
+};
+
+export async function getAssetById(
+  d1: D1Database,
+  assetId: number
+): Promise<AssetWithBookmark | null> {
+  const db = getDb(d1);
+  const rows = await db
+    .select({
+      asset: bookmarkAssets,
+      bookmarkOwnerId: bookmarks.ownerId,
+      bookmarkShared: bookmarks.shared
+    })
+    .from(bookmarkAssets)
+    .innerJoin(bookmarks, eq(bookmarks.id, bookmarkAssets.bookmarkId))
+    .where(eq(bookmarkAssets.id, assetId))
+    .limit(1);
+  const r = rows[0];
+  if (!r) return null;
+  return { ...r.asset, bookmarkOwnerId: r.bookmarkOwnerId, bookmarkShared: r.bookmarkShared };
+}
+
 export async function completeAsset(
   d1: D1Database,
   assetId: number,
