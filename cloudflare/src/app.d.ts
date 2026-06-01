@@ -1,3 +1,5 @@
+import type { AuthResolveResult } from '$lib/server/auth/middleware';
+
 declare global {
   namespace App {
     interface Platform {
@@ -12,12 +14,18 @@ declare global {
         PUBLIC_BASE_URL?: string;
         FAVICON_PROVIDER?: string;
         APP_SECRET?: string;
+        API_TOKEN_PEPPER?: string;
         [key: string]: unknown;
       };
       context: {
         waitUntil(promise: Promise<unknown>): void;
         passThroughOnException(): void;
+        [key: string]: unknown;
       };
+    }
+
+    interface Locals {
+      auth: AuthResolveResult;
     }
   }
 }
