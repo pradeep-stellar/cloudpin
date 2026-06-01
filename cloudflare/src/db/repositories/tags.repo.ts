@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { getDb } from '../client';
-import { tags } from '../schema';
+import { tags, bookmarkTags } from '../schema';
 import { normalizeTagName } from '../../domain/tags';
 
 export type TagRow = {
@@ -100,6 +100,94 @@ export async function deleteTag(d1: D1Database, ownerId: number, id: number): Pr
     .where(and(eq(tags.id, id), eq(tags.ownerId, ownerId)))
     .returning({ id: tags.id });
   return result.length > 0;
+}
+
+export type RenameTagResult = { id: number; name: string; merged: boolean };
+
+export async function renameTag(
+  d1: D1Database,
+  ownerId: number,
+  id: number,
+  newName: string
+): Promise<RenameTagResult | null> {
+  const normalized = normalizeTagName(newName);
+  if (!normalized) throw new Error('Tag name is empty after normalization');
+  const db = getDb(d1);
+  const current = await db
+    .select()
+    .from(tags)
+    .where(and(eq(tags.id, id), eq(tags.ownerId, ownerId)))
+    .limit(1);
+  const tag = current[0];
+  if (!tag) return null;
+  if (tag.nameNormalized === normalized) {
+    if (tag.name === newName) return { id: tag.id, name: tag.name, merged: false };
+  }
+  const conflict = await db
+    .select()
+    .from(tags)
+    .where(and(eq(tags.ownerId, ownerId), eq(tags.nameNormalized, normalized)))
+    .limit(1);
+  const other = conflict[0];
+  if (other && other.id !== id) {
+    await mergeTags(d1, ownerId, id, other.id);
+    return { id: other.id, name: other.name, merged: true };
+  }
+  await db.update(tags).set({ name: newName, nameNormalized: normalized }).where(eq(tags.id, id));
+  return { id, name: newName, merged: false };
+}
+
+export async function mergeTags(
+  d1: D1Database,
+  ownerId: number,
+  sourceId: number,
+  targetId: number
+): Promise<number> {
+  if (sourceId === targetId) return 0;
+  const db = getDb(d1);
+  const sourceLinks = await db
+    .select({ bookmarkId: bookmarkTags.bookmarkId })
+    .from(bookmarkTags)
+    .where(eq(bookmarkTags.tagId, sourceId));
+  const targetLinks = await db
+    .select({ bookmarkId: bookmarkTags.bookmarkId })
+    .from(bookmarkTags)
+    .where(eq(bookmarkTags.tagId, targetId));
+  const targetSet = new Set(targetLinks.map((r) => r.bookmarkId));
+  const toInsert = sourceLinks.map((r) => r.bookmarkId).filter((id) => !targetSet.has(id));
+
+  if (toInsert.length > 0) {
+    await db
+      .insert(bookmarkTags)
+      .values(toInsert.map((bookmarkId) => ({ bookmarkId, tagId: targetId })));
+  }
+  await db.delete(bookmarkTags).where(eq(bookmarkTags.tagId, sourceId));
+  const deleted = await db
+    .delete(tags)
+    .where(and(eq(tags.id, sourceId), eq(tags.ownerId, ownerId)))
+    .returning({ id: tags.id });
+  void ownerId;
+  return deleted.length > 0 ? toInsert.length : 0;
+}
+
+export type TagWithCount = TagRow & { bookmark_count: number };
+
+export async function listTagsWithCounts(d1: D1Database, ownerId: number): Promise<TagWithCount[]> {
+  const db = getDb(d1);
+  const rows = await db
+    .select({
+      id: tags.id,
+      name: tags.name,
+      date_added: tags.dateAdded,
+      bookmark_count:
+        sql<number>`(SELECT COUNT(*) FROM bookmark_tags bt WHERE bt.tag_id = ${tags.id})`.as(
+          'bookmark_count'
+        )
+    })
+    .from(tags)
+    .where(eq(tags.ownerId, ownerId))
+    .orderBy(asc(tags.name));
+  return rows.map((r) => ({ ...r, bookmark_count: Number(r.bookmark_count) }));
 }
 
 export type UserProfileRow = {

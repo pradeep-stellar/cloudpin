@@ -86,11 +86,33 @@
         <a class="btn btn-primary" href="/bookmarks/new">Add your first bookmark</a>
       </div>
     {:else}
-      <div class="cards">
-        {#each data.bookmarks as b (b.id)}
-          <BookmarkCard bookmark={b} onTagClick={(t) => selectTag(t)} />
-        {/each}
-      </div>
+      <form method="POST" action="?/bulkAction" class="bulk-form">
+        <div class="bulk-bar">
+          <label class="bulk-label">
+            <span>Action:</span>
+            <select name="action" required>
+              <option value="">— choose —</option>
+              <option value="archive">Archive</option>
+              <option value="unarchive">Unarchive</option>
+              <option value="delete">Delete</option>
+              <option value="markRead">Mark as read</option>
+              <option value="markUnread">Mark as unread</option>
+              <option value="share">Share</option>
+              <option value="unshare">Unshare</option>
+              <option value="addTag">Add tag…</option>
+              <option value="removeTag">Remove tag…</option>
+            </select>
+          </label>
+          <input type="text" name="tag" placeholder="tag name (for add/remove)" class="tag-input" />
+          <button type="submit" class="btn">Apply</button>
+        </div>
+
+        <div class="cards">
+          {#each data.bookmarks as b (b.id)}
+            <BookmarkCard bookmark={b} onTagClick={(t) => selectTag(t)} />
+          {/each}
+        </div>
+      </form>
 
       <nav class="pager">
         {#if data.page > 1}
@@ -156,6 +178,36 @@
   .meta {
     color: var(--fg-muted);
     font-size: 12px;
+  }
+  .bulk-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .bulk-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+  }
+  .bulk-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+  }
+  .tag-input {
+    flex: 1;
+    min-width: 120px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--fg);
   }
   .cards {
     display: flex;

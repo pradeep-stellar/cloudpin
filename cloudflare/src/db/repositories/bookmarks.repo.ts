@@ -360,4 +360,127 @@ function toListItem(row: typeof bookmarks.$inferSelect, tagNames: string[]): Boo
   };
 }
 
+export type BulkUpdateFields = {
+  isArchived?: boolean;
+  unread?: boolean;
+  shared?: boolean;
+};
+
+export async function bulkUpdateBookmarks(
+  d1: D1Database,
+  ownerId: number,
+  ids: number[],
+  fields: BulkUpdateFields
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const db = getDb(d1);
+  const update: Partial<typeof bookmarks.$inferInsert> = {
+    dateModified: new Date().toISOString()
+  };
+  if (fields.isArchived !== undefined) update.isArchived = fields.isArchived;
+  if (fields.unread !== undefined) update.unread = fields.unread;
+  if (fields.shared !== undefined) update.shared = fields.shared;
+  const result = await db
+    .update(bookmarks)
+    .set(update)
+    .where(and(eq(bookmarks.ownerId, ownerId), inArray(bookmarks.id, ids)))
+    .returning({ id: bookmarks.id });
+  return result.length;
+}
+
+export async function bulkDeleteBookmarks(
+  d1: D1Database,
+  ownerId: number,
+  ids: number[]
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const db = getDb(d1);
+  const result = await db
+    .delete(bookmarks)
+    .where(and(eq(bookmarks.ownerId, ownerId), inArray(bookmarks.id, ids)))
+    .returning({ id: bookmarks.id });
+  return result.length;
+}
+
+export async function bulkAddTag(
+  d1: D1Database,
+  ownerId: number,
+  ids: number[],
+  tagName: string
+): Promise<{ addedBookmarkCount: number; tagId: number }> {
+  if (ids.length === 0) return { addedBookmarkCount: 0, tagId: 0 };
+  const normalized = normalizeTagName(tagName);
+  if (!normalized) return { addedBookmarkCount: 0, tagId: 0 };
+  const db = getDb(d1);
+  const existing = await db
+    .select()
+    .from(tags)
+    .where(and(eq(tags.ownerId, ownerId), eq(tags.nameNormalized, normalized)))
+    .limit(1);
+  let tagId: number;
+  if (existing[0]) {
+    tagId = existing[0].id;
+  } else {
+    const inserted = await db
+      .insert(tags)
+      .values({
+        ownerId,
+        name: tagName.trim(),
+        nameNormalized: normalized,
+        dateAdded: new Date().toISOString()
+      })
+      .returning({ id: tags.id });
+    const r = inserted[0];
+    if (!r) throw new Error('Failed to insert tag');
+    tagId = r.id;
+  }
+
+  const existingLinks = await db
+    .select({ bookmarkId: bookmarkTags.bookmarkId })
+    .from(bookmarkTags)
+    .where(and(eq(bookmarkTags.tagId, tagId), inArray(bookmarkTags.bookmarkId, ids)));
+  const alreadyLinked = new Set(existingLinks.map((r) => r.bookmarkId));
+  const toInsert = ids.filter((id) => !alreadyLinked.has(id));
+  if (toInsert.length === 0) {
+    return { addedBookmarkCount: 0, tagId };
+  }
+  await db.insert(bookmarkTags).values(toInsert.map((bookmarkId) => ({ bookmarkId, tagId })));
+  await db
+    .update(bookmarks)
+    .set({ dateModified: new Date().toISOString() })
+    .where(inArray(bookmarks.id, toInsert));
+  return { addedBookmarkCount: toInsert.length, tagId };
+}
+
+export async function bulkRemoveTag(
+  d1: D1Database,
+  ownerId: number,
+  ids: number[],
+  tagName: string
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const normalized = normalizeTagName(tagName);
+  if (!normalized) return 0;
+  const db = getDb(d1);
+  const tag = await db
+    .select()
+    .from(tags)
+    .where(and(eq(tags.ownerId, ownerId), eq(tags.nameNormalized, normalized)))
+    .limit(1);
+  const tagRow = tag[0];
+  if (!tagRow) return 0;
+  const result = await db
+    .delete(bookmarkTags)
+    .where(and(eq(bookmarkTags.tagId, tagRow.id), inArray(bookmarkTags.bookmarkId, ids)))
+    .returning({ bookmarkId: bookmarkTags.bookmarkId });
+  if (result.length > 0) {
+    const removedIds = result.map((r) => r.bookmarkId);
+    await db
+      .update(bookmarks)
+      .set({ dateModified: new Date().toISOString() })
+      .where(inArray(bookmarks.id, removedIds));
+  }
+  return result.length;
+}
+
 export type { Bookmark, BookmarkAsset, NewBookmark, NewBookmarkAsset, Tag };

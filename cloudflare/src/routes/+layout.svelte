@@ -10,6 +10,7 @@
     { href: '/bookmarks/archived', label: 'Archived' },
     { href: '/bookmarks/shared', label: 'Shared' },
     { href: '/tags', label: 'Tags' },
+    { href: '/bundles', label: 'Bundles' },
     { href: '/settings', label: 'Settings' }
   ];
 

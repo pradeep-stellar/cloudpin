@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { displayUrl } from '$lib/../domain/url-normalize';
+  import { displayUrl } from '$domain/url-normalize';
 
   type Bookmark = {
     id: number;
@@ -17,11 +17,12 @@
 
   type Props = {
     bookmark: Bookmark;
+    selected?: boolean;
     onTagClick?: (tag: string) => void;
     canEdit?: boolean;
   };
 
-  let { bookmark, onTagClick, canEdit = true }: Props = $props();
+  let { bookmark, selected = false, onTagClick, canEdit = true }: Props = $props();
 
   const displayTitle = $derived(bookmark.title || bookmark.url);
   const displayHost = $derived(displayUrl(bookmark.url));
@@ -29,8 +30,18 @@
   const hasDescription = $derived(bookmark.description && bookmark.description.trim() !== '');
 </script>
 
-<article class="card" class:archived={bookmark.is_archived} class:unread={bookmark.unread}>
+<article
+  class="card"
+  class:archived={bookmark.is_archived}
+  class:unread={bookmark.unread}
+  class:selected
+>
   <header class="head">
+    {#if canEdit}
+      <label class="check">
+        <input type="checkbox" name="selected" value={bookmark.id} checked={selected} />
+      </label>
+    {/if}
     <a class="title" href={bookmark.url} target="_blank" rel="noopener noreferrer">
       {displayTitle}
     </a>
@@ -74,25 +85,6 @@
       <div class="actions">
         <a href={`/bookmarks/${bookmark.id}/details`}>Details</a>
         <a href={`/bookmarks/${bookmark.id}/edit`}>Edit</a>
-        <form method="POST" action="/?/toggleArchive" style="display:inline">
-          <input type="hidden" name="id" value={bookmark.id} />
-          <input type="hidden" name="archive" value={bookmark.is_archived ? 'false' : 'true'} />
-          <button type="submit" class="link-btn">
-            {bookmark.is_archived ? 'Unarchive' : 'Archive'}
-          </button>
-        </form>
-        <form method="POST" action="/?/delete" style="display:inline">
-          <input type="hidden" name="id" value={bookmark.id} />
-          <button
-            type="submit"
-            class="link-btn danger"
-            onclick={(e) => {
-              if (!confirm('Delete this bookmark?')) e.preventDefault();
-            }}
-          >
-            Delete
-          </button>
-        </form>
       </div>
     {/if}
   </footer>
@@ -112,6 +104,10 @@
     background: var(--archived-bg);
     opacity: 0.85;
   }
+  .card.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
   .card.unread .title {
     font-weight: 600;
   }
@@ -120,11 +116,22 @@
     align-items: center;
     gap: 6px;
   }
+  .check {
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+  }
+  .check input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+  }
   .title {
     color: var(--fg);
     font-size: 15px;
     font-weight: 500;
     word-break: break-word;
+    flex: 1;
   }
   .title:hover {
     color: var(--accent);
@@ -200,19 +207,5 @@
     display: flex;
     gap: 10px;
     align-items: center;
-  }
-  .link-btn {
-    background: none;
-    border: none;
-    padding: 0;
-    color: var(--accent);
-    font-size: 12px;
-    cursor: pointer;
-  }
-  .link-btn:hover {
-    text-decoration: underline;
-  }
-  .link-btn.danger {
-    color: var(--danger);
   }
 </style>
