@@ -8,3 +8,6 @@
 {"id":"int-a3aaa9d6","kind":"field_change","created_at":"2026-06-01T01:11:31.515944Z","actor":"Pradeep Gowda","issue_id":"cloudpin-ru8","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
 {"id":"int-f0edd951","kind":"field_change","created_at":"2026-06-01T01:13:52.77056Z","actor":"Pradeep Gowda","issue_id":"cloudpin-4bl","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
 {"id":"int-505020e6","kind":"field_change","created_at":"2026-06-01T01:13:52.957413Z","actor":"Pradeep Gowda","issue_id":"cloudpin-m7h","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
+{"id":"int-ec9098ef","kind":"field_change","created_at":"2026-06-01T03:14:09.592469Z","actor":"Pradeep Gowda","issue_id":"cloudpin-0qd","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
+{"id":"int-df98c657","kind":"field_change","created_at":"2026-06-01T03:16:28.271094Z","actor":"Pradeep Gowda","issue_id":"cloudpin-4cm","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
+{"id":"int-466ec118","kind":"field_change","created_at":"2026-06-01T03:22:00.042482Z","actor":"Pradeep Gowda","issue_id":"cloudpin-lpw","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
