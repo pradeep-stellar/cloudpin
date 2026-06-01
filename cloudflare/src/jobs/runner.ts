@@ -2,6 +2,8 @@ import type { JobMessage } from './messages';
 import { fetchSiteMeta } from './handlers/metadata';
 import { fetchFavicon, isImageContentType } from './handlers/favicon';
 import { fetchPreviewImage } from './handlers/preview';
+import { submitToWayback } from './handlers/wayback';
+import { captureHtml, capturePdf, gzipBuffer, type SnapshotFormat } from './handlers/snapshot';
 import { completeAsset, createAsset, failAsset } from '../db/repositories/assets.repo';
 import { getBookmarkById, updateBookmark } from '../db/repositories/bookmarks.repo';
 import { r2Keys } from '../storage/asset-keys';
@@ -10,6 +12,7 @@ import { putObject } from '../storage/r2';
 export type QueueEnv = {
   DB: D1Database;
   ASSETS_BUCKET: R2Bucket;
+  BROWSER?: Fetcher;
   FAVICON_PROVIDER?: string;
 };
 
@@ -28,7 +31,9 @@ export async function runJob(ctx: JobContext): Promise<{ ok: boolean; reason?: s
     case 'preview.load':
       return runPreview(env, message);
     case 'wayback.create':
+      return runWayback(env, message);
     case 'snapshot.create':
+      return runSnapshot(env, message);
     case 'import.process':
     case 'backfill.favicons':
     case 'backfill.previews':
@@ -132,6 +137,55 @@ async function runPreview(env: QueueEnv, m: JobMessage): Promise<{ ok: boolean; 
     ownerId: m.userId,
     id: m.bookmarkId,
     patch: { previewImageKey: put.key }
+  });
+  return { ok: true };
+}
+
+async function runWayback(env: QueueEnv, m: JobMessage): Promise<{ ok: boolean; reason?: string }> {
+  if (!m.bookmarkId) return { ok: false, reason: 'no_bookmark' };
+  const b = await getBookmarkById(env.DB, m.userId, m.bookmarkId);
+  if (!b) return { ok: false, reason: 'bookmark_not_found' };
+  const result = await submitToWayback(b.url);
+  if (!result.ok) return { ok: false, reason: result.reason ?? 'wayback_failed' };
+  await updateBookmark(env.DB, {
+    ownerId: m.userId,
+    id: m.bookmarkId,
+    patch: { webArchiveSnapshotUrl: result.snapshotUrl ?? '' }
+  });
+  return { ok: true };
+}
+
+async function runSnapshot(
+  env: QueueEnv,
+  m: JobMessage
+): Promise<{ ok: boolean; reason?: string }> {
+  if (!m.bookmarkId) return { ok: false, reason: 'no_bookmark' };
+  const b = await getBookmarkById(env.DB, m.userId, m.bookmarkId);
+  if (!b) return { ok: false, reason: 'bookmark_not_found' };
+  const format: SnapshotFormat = b.url.toLowerCase().endsWith('.pdf') ? 'pdf' : 'html';
+  const result =
+    format === 'pdf' ? await capturePdf(b.url, env.BROWSER) : await captureHtml(b.url, env.BROWSER);
+  if (!result) return { ok: false, reason: 'snapshot_failed' };
+  const gz = await gzipBuffer(result.body);
+  const key = r2Keys.snapshot(m.userId, m.bookmarkId, 0, format);
+  const assetId = await createAsset(env.DB, {
+    bookmarkId: m.bookmarkId,
+    assetType: 'snapshot',
+    contentType: result.contentType,
+    displayName: result.filename,
+    status: 'pending',
+    gzip: true
+  });
+  const put = await putObject(env.ASSETS_BUCKET, key, gz.body, {
+    contentType: 'application/gzip',
+    cacheControl: 'public, max-age=31536000',
+    metadata: { originalContentType: result.contentType, format }
+  });
+  await completeAsset(env.DB, assetId, { r2Key: put.key, fileSize: put.size, gzip: true });
+  await updateBookmark(env.DB, {
+    ownerId: m.userId,
+    id: m.bookmarkId,
+    patch: { latestSnapshotAssetId: assetId }
   });
   return { ok: true };
 }

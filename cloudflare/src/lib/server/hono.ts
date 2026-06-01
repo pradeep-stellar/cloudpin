@@ -4,6 +4,7 @@ import { bookmarksRouter } from '$server/api/bookmarks.routes';
 import { tagsRouter } from '$server/api/tags.routes';
 import { profileRouter } from '$server/api/profile.routes';
 import { assetsRouter } from '$server/api/assets.routes';
+import { singlefileRouter } from '$server/api/singlefile.routes';
 
 type Bindings = {
   DB: D1Database;
@@ -66,6 +67,7 @@ honoApp.use('/api/bookmarks/*', async (c, next) => {
 
 honoApp.route('/api/bookmarks', bookmarksRouter);
 honoApp.route('/api', assetsRouter);
+honoApp.route('/api/bookmarks', singlefileRouter);
 honoApp.route('/api/tags', tagsRouter);
 honoApp.route('/api/user', profileRouter);
 

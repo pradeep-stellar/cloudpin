@@ -199,6 +199,7 @@ export type UpdateBookmarkInput = {
     faviconKey?: string;
     previewImageKey?: string;
     latestSnapshotAssetId?: number;
+    webArchiveSnapshotUrl?: string;
   };
 };
 
@@ -233,6 +234,8 @@ export async function updateBookmark(
     updates.previewImageKey = input.patch.previewImageKey;
   if (input.patch.latestSnapshotAssetId !== undefined)
     updates.latestSnapshotAssetId = input.patch.latestSnapshotAssetId;
+  if (input.patch.webArchiveSnapshotUrl !== undefined)
+    updates.webArchiveSnapshotUrl = input.patch.webArchiveSnapshotUrl;
 
   await db.update(bookmarks).set(updates).where(eq(bookmarks.id, input.id));
   return getBookmarkByIdForAnyOwner(d1, input.id);
