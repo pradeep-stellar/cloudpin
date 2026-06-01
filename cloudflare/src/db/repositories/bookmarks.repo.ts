@@ -133,6 +133,8 @@ export type CreateBookmarkInput = {
   isArchived?: boolean;
   unread?: boolean;
   shared?: boolean;
+  dateAdded?: string;
+  dateModified?: string;
 };
 
 export type CreateBookmarkResult = {
@@ -155,6 +157,8 @@ export async function createBookmark(
   }
 
   const now = new Date().toISOString();
+  const dateAdded = input.dateAdded ?? now;
+  const dateModified = input.dateModified ?? now;
   const inserted = await db
     .insert(bookmarks)
     .values({
@@ -167,8 +171,8 @@ export async function createBookmark(
       isArchived: input.isArchived ?? false,
       unread: input.unread ?? false,
       shared: input.shared ?? false,
-      dateAdded: now,
-      dateModified: now
+      dateAdded,
+      dateModified
     })
     .returning();
   const bookmark = inserted[0];
