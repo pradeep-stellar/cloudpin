@@ -1,11 +1,26 @@
 import type { Bookmark, BookmarkAsset, NewBookmark, NewBookmarkAsset, Tag } from '../../db/schema';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import { getDb } from '../client';
 import { bookmarks, bookmarkTags, tags } from '../schema';
 import { normalizeUrl } from '../../domain/url-normalize';
 import { normalizeTagName } from '../../domain/tags';
 import { parseSearch } from '../../domain/search-parser';
-import { compileSearch } from '../../domain/search-sql';
+import { compileSearch, type CompiledSearch } from '../../domain/search-sql';
+
+// sql.raw() only takes a string; bind the compiled search params by
+// interleaving the raw SQL with the params as prepared-statement values.
+function compiledToSql(compiled: CompiledSearch): SQL {
+  if (!compiled.sql) return sql`1=1`;
+  const segments = compiled.sql.split('?');
+  let acc: SQL | undefined;
+  for (let i = 0; i < segments.length; i++) {
+    acc = acc ? sql`${acc}${sql.raw(segments[i]!)}` : sql.raw(segments[i]!);
+    if (i < compiled.params.length) {
+      acc = sql`${acc}${compiled.params[i]}`;
+    }
+  }
+  return acc ?? sql`1=1`;
+}
 
 export type BookmarkListItem = {
   id: number;
@@ -57,7 +72,7 @@ export async function listBookmarks(
     const ast = parseSearch(opts.searchQuery);
     const compiled = compileSearch(ast);
     if (compiled.sql) {
-      conditions.push(sql.raw(compiled.sql) as ReturnType<typeof eq>);
+      conditions.push(compiledToSql(compiled));
     }
   }
 

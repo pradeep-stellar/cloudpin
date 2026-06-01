@@ -13,10 +13,10 @@ describe('compileSearch', () => {
 
   it('compiles a single term to a LIKE on multiple columns', () => {
     const out = compile('hello');
-    expect(out.sql).toContain('"b"."title" LIKE ?');
-    expect(out.sql).toContain('"b"."description" LIKE ?');
-    expect(out.sql).toContain('"b"."notes" LIKE ?');
-    expect(out.sql).toContain('"b"."url" LIKE ?');
+    expect(out.sql).toContain('"bookmarks"."title" LIKE ?');
+    expect(out.sql).toContain('"bookmarks"."description" LIKE ?');
+    expect(out.sql).toContain('"bookmarks"."notes" LIKE ?');
+    expect(out.sql).toContain('"bookmarks"."url" LIKE ?');
     expect(out.params).toEqual(['%hello%', '%hello%', '%hello%', '%hello%']);
   });
 
@@ -41,7 +41,7 @@ describe('compileSearch', () => {
 
   it('compiles !unread as a column check', () => {
     const out = compile('!unread');
-    expect(out.sql).toContain('"b"."unread" = 1');
+    expect(out.sql).toContain('"bookmarks"."unread" = 1');
     expect(out.params).toEqual([]);
   });
 
@@ -79,7 +79,7 @@ describe('compileSearch', () => {
   it('respects AND-binds-tighter-than-OR precedence', () => {
     const out = compile('foo OR bar baz');
     expect(out.sql).toBe(
-      '(("b"."title" LIKE ? ESCAPE \'\\\' OR "b"."description" LIKE ? ESCAPE \'\\\' OR "b"."notes" LIKE ? ESCAPE \'\\\' OR "b"."url" LIKE ? ESCAPE \'\\\')) OR ((("b"."title" LIKE ? ESCAPE \'\\\' OR "b"."description" LIKE ? ESCAPE \'\\\' OR "b"."notes" LIKE ? ESCAPE \'\\\' OR "b"."url" LIKE ? ESCAPE \'\\\')) AND (("b"."title" LIKE ? ESCAPE \'\\\' OR "b"."description" LIKE ? ESCAPE \'\\\' OR "b"."notes" LIKE ? ESCAPE \'\\\' OR "b"."url" LIKE ? ESCAPE \'\\\')))'
+      '(("bookmarks"."title" LIKE ? ESCAPE \'\\\' OR "bookmarks"."description" LIKE ? ESCAPE \'\\\' OR "bookmarks"."notes" LIKE ? ESCAPE \'\\\' OR "bookmarks"."url" LIKE ? ESCAPE \'\\\')) OR ((("bookmarks"."title" LIKE ? ESCAPE \'\\\' OR "bookmarks"."description" LIKE ? ESCAPE \'\\\' OR "bookmarks"."notes" LIKE ? ESCAPE \'\\\' OR "bookmarks"."url" LIKE ? ESCAPE \'\\\')) AND (("bookmarks"."title" LIKE ? ESCAPE \'\\\' OR "bookmarks"."description" LIKE ? ESCAPE \'\\\' OR "bookmarks"."notes" LIKE ? ESCAPE \'\\\' OR "bookmarks"."url" LIKE ? ESCAPE \'\\\')))'
     );
   });
 
@@ -97,9 +97,9 @@ describe('compileSearch', () => {
 
   it('combines term, tag, and keyword in one query', () => {
     const out = compile('foo #rust !unread');
-    expect(out.sql).toContain('"b"."title"');
+    expect(out.sql).toContain('"bookmarks"."title"');
     expect(out.sql).toContain('EXISTS');
-    expect(out.sql).toContain('"b"."unread" = 1');
+    expect(out.sql).toContain('"bookmarks"."unread" = 1');
     expect(out.params.length).toBeGreaterThan(0);
   });
 
@@ -115,9 +115,9 @@ describe('compileSearch', () => {
 
   it('uses custom term columns', () => {
     const out = compileSearch(parseSearch('foo'), { termColumns: ['title', 'url'] });
-    expect(out.sql).toContain('"b"."title"');
-    expect(out.sql).toContain('"b"."url"');
-    expect(out.sql).not.toContain('"b"."description"');
+    expect(out.sql).toContain('"bookmarks"."title"');
+    expect(out.sql).toContain('"bookmarks"."url"');
+    expect(out.sql).not.toContain('"bookmarks"."description"');
     expect(out.params).toHaveLength(2);
   });
 
@@ -125,7 +125,7 @@ describe('compileSearch', () => {
     const out = compile('(foo OR #rust) AND !unread');
     expect(out.sql).toMatch(/OR/);
     expect(out.sql).toMatch(/AND/);
-    expect(out.sql).toContain('"b"."unread" = 1');
+    expect(out.sql).toContain('"bookmarks"."unread" = 1');
     expect(out.params).toContain('rust');
   });
 });

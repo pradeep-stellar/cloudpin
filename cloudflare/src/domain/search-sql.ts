@@ -9,6 +9,11 @@ export type CompileOptions = {
 };
 
 const DEFAULT_TERM_COLUMNS = ['title', 'description', 'notes', 'url'] as const;
+// Drizzle renders table references as `"bookmarks"` when no alias is
+// applied, so the compiled search SQL has to reference the same
+// unaliased table name. Callers that alias the table (e.g. joins) must
+// pass `tableAlias` explicitly.
+const DEFAULT_TABLE_ALIAS = 'bookmarks';
 
 export type CompiledSearch = {
   sql: string;
@@ -28,7 +33,7 @@ export function compileSearch(
   options: CompileOptions = {}
 ): CompiledSearch {
   if (!node) return { sql: '', params: [] };
-  const tableAlias = options.tableAlias ?? 'b';
+  const tableAlias = options.tableAlias ?? DEFAULT_TABLE_ALIAS;
   const termColumns = options.termColumns ?? DEFAULT_TERM_COLUMNS;
   const tagColumn = options.tagColumn ?? 'name_normalized';
   const tagsAlias = options.tagsTableAlias ?? 't';
