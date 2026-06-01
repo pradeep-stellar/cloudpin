@@ -98,6 +98,24 @@ npm run lint         # prettier --check + eslint
 npm test             # vitest (node environment, pure domain logic)
 ```
 
+End-to-end tests use Playwright against a local `wrangler dev` server with the
+`CLOUDPIN_E2E_BYPASS_AUTH=1` opt-in auth bypass. The bypass value is set via
+`.dev.vars` (which `wrangler dev` injects as the `env.CLOUDPIN_E2E_BYPASS_AUTH`
+worker binding) and read in `src/hooks.server.ts`. The smoke spec at
+`test/e2e/smoke.spec.ts` is the canonical readiness check. The first run
+downloads Chromium; subsequent runs reuse the local D1 state in
+`.wrangler/state/` and the dev server is auto-started by the `webServer` block
+in `playwright.config.ts`.
+
+```bash
+npm run test:e2e:install   # one-time: install Chromium with system deps
+npm run test:e2e           # run the suite; auto-boots wrangler dev
+```
+
+For a clean run, delete `.wrangler/state/` first. The bypass is gated on the
+explicit `CLOUDPIN_E2E_BYPASS_AUTH=1` opt-in so it never engages in normal dev
+or production.
+
 ## Build and deploy
 
 Build the Worker bundle:

@@ -16,6 +16,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote:preview": "wrangler d1 migrations apply DB --remote --env preview",
     "db:migrate:remote:prod": "wrangler d1 migrations apply DB --remote --env production",
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.16.10",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.60.0",
     "@sveltejs/adapter-cloudflare": "^7.2.8",
     "@sveltejs/kit": "^2.61.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",

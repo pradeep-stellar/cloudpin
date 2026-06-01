@@ -38,7 +38,11 @@ export default ts.config(
       'node_modules/',
       'worker-configuration.d.ts',
       '.wrangler/',
-      'scripts/'
+      'scripts/',
+      'test-results/',
+      'playwright-report/',
+      'playwright/.cache/',
+      'test/fixtures/'
     ]
   }
 );

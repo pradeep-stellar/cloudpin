@@ -4,6 +4,10 @@ import { normalizeUrl } from '../../src/domain/url-normalize';
 import { normalizeTagName } from '../../src/domain/tags';
 import { readPostgresDb, type LinkdingDb } from '../../tools/migrate-linkding';
 
+type Queryable = {
+  query(sql: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
+};
+
 function toExportBookmarks(
   sourceBookmarks: Array<{
     url: string;
@@ -134,26 +138,28 @@ function makeFakeQueryable(tables: {
   assets?: Record<string, unknown>[];
 }): {
   queries: string[];
-  query: ReturnType<typeof vi.fn>;
+  client: Queryable;
 } {
   const queries: string[] = [];
-  const query = vi.fn(async (sql: string) => {
-    queries.push(sql);
-    if (/FROM\s+auth_user/i.test(sql)) return { rows: tables.users ?? [] };
-    if (/FROM\s+tag\b/i.test(sql)) return { rows: tables.tags ?? [] };
-    if (/FROM\s+bookmark_tag/i.test(sql)) return { rows: tables.bookmarkTagJoin ?? [] };
-    if (/FROM\s+bookmark\b/i.test(sql)) return { rows: tables.bookmarks ?? [] };
-    if (/FROM\s+bundle\b/i.test(sql)) return { rows: tables.bundles ?? [] };
-    if (/FROM\s+bookmark_asset/i.test(sql)) return { rows: tables.assets ?? [] };
-    throw new Error(`Unexpected query: ${sql}`);
-  });
-  return { queries, query };
+  const client: Queryable = {
+    query: vi.fn(async (sql: string) => {
+      queries.push(sql);
+      if (/FROM\s+auth_user/i.test(sql)) return { rows: tables.users ?? [] };
+      if (/FROM\s+tag\b/i.test(sql)) return { rows: tables.tags ?? [] };
+      if (/FROM\s+bookmark_tag/i.test(sql)) return { rows: tables.bookmarkTagJoin ?? [] };
+      if (/FROM\s+bookmark\b/i.test(sql)) return { rows: tables.bookmarks ?? [] };
+      if (/FROM\s+bundle\b/i.test(sql)) return { rows: tables.bundles ?? [] };
+      if (/FROM\s+bookmark_asset/i.test(sql)) return { rows: tables.assets ?? [] };
+      throw new Error(`Unexpected query: ${sql}`);
+    })
+  };
+  return { queries, client };
 }
 
 describe('readPostgresDb', () => {
   it('issues the expected SQL in a stable order against the Linkding tables', async () => {
     const fake = makeFakeQueryable({});
-    await readPostgresDb(fake);
+    await readPostgresDb(fake.client);
     // Each SQL fragment must show up at least once. Order isn't strict because
     // Postgres is non-deterministic about parallel plans, but the four core
     // tables must all be touched in some order.
@@ -195,7 +201,7 @@ describe('readPostgresDb', () => {
       assets: []
     });
 
-    const db = await readPostgresDb(fake);
+    const db = await readPostgresDb(fake.client);
     expect(db.users[0]!.is_admin).toBe(true);
     expect(db.users[1]!.is_admin).toBe(false);
     expect(db.bookmarks[0]!.is_archived).toBe(true);
@@ -221,7 +227,7 @@ describe('readPostgresDb', () => {
         }
       ]
     });
-    const db = await readPostgresDb(fake);
+    const db = await readPostgresDb(fake.client);
     expect(db.bookmarks[0]!.date_added).toBe('2024-06-01T12:00:00.000Z');
     expect(db.bookmarks[0]!.date_modified).toBe('2024-06-02T12:00:00.000Z');
   });
@@ -244,7 +250,7 @@ describe('readPostgresDb', () => {
         }
       ]
     });
-    const db = await readPostgresDb(fake);
+    const db = await readPostgresDb(fake.client);
     expect(db.bookmarks[0]!.date_added).toBe('2024-06-01 12:00:00+00');
     expect(db.bookmarks[0]!.date_modified).toBe('2024-06-02 12:00:00+00');
   });
@@ -285,7 +291,7 @@ describe('readPostgresDb', () => {
         { bookmark_id: 1, name: 'web' }
       ]
     });
-    const db = await readPostgresDb(fake);
+    const db = await readPostgresDb(fake.client);
     expect(db.bookmarks[0]!.tag_names).toEqual(['rust', 'web']);
     expect(db.bookmarks[1]!.tag_names).toEqual(['wasm']);
   });
@@ -308,7 +314,7 @@ describe('readPostgresDb', () => {
         }
       ]
     });
-    const db = await readPostgresDb(fake);
+    const db = await readPostgresDb(fake.client);
     expect(db.bundles[0]!.id).toBe(7);
     expect(db.bundles[0]!.sort_order).toBe(3);
     expect(db.bundles[0]!.date_created).toBe('2024-03-01T00:00:00.000Z');
@@ -320,7 +326,7 @@ describe('readPostgresDb', () => {
         { id: 1, bookmark_id: 10, display_name: 'shot.png', file_size: null, status: 'complete' }
       ]
     });
-    const db: LinkdingDb = await readPostgresDb(fake);
+    const db: LinkdingDb = await readPostgresDb(fake.client);
     expect(db.assets[0]!.file_size).toBeNull();
     expect(db.assets[0]!.status).toBe('complete');
   });
@@ -332,7 +338,7 @@ describe('readPostgresDb', () => {
       bookmarks: [],
       assets: []
     });
-    const db = await readPostgresDb(fake);
+    const db = await readPostgresDb(fake.client);
     expect(db.users[0]!.id).toBe(42);
   });
 });

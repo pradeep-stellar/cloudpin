@@ -5,3 +5,7 @@ package-lock.json
 migrations/.wrangler
 dist
 worker-configuration.d.ts
+test-results
+playwright-report
+playwright/.cache
+test/fixtures

@@ -61,7 +61,7 @@ type LinkdingUser = {
   is_admin: boolean;
 };
 
-type LinkdingDb = {
+export type LinkdingDb = {
   users: LinkdingUser[];
   bookmarks: LinkdingBookmark[];
   tags: LinkdingTag[];
