@@ -3,3 +3,16 @@
 .dolt/
 *.db
 .beads-credential-key
+
+# Personal bookmark import data (not part of the cloudpin app)
+pinboard_export.*.json
+x_bookmarks_*.csv
+
+# Cloudflare
+.wrangler/
+build/
+
+# Editor
+.vscode/
+.idea/
+.DS_Store

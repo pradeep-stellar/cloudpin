@@ -1,0 +1,48 @@
+{
+  "name": "cloudpin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloudflare-native bookmark manager, reimplementation of Linkding.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "vite build",
+    "preview": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "cf:typegen": "wrangler types",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --threshold error",
+    "lint": "prettier --check . && eslint .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote:preview": "wrangler d1 migrations apply DB --remote --env preview",
+    "db:migrate:remote:prod": "wrangler d1 migrations apply DB --remote --env production",
+    "db:reset:local": "wrangler d1 execute DB --local --command \"SELECT name FROM sqlite_master WHERE type='table';\""
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.16.10",
+    "@eslint/js": "^10.0.1",
+    "@sveltejs/adapter-cloudflare": "^7.2.8",
+    "@sveltejs/kit": "^2.61.1",
+    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-svelte": "^3.0.0",
+    "globals": "^17.6.0",
+    "prettier": "^3.6.0",
+    "prettier-plugin-svelte": "^3.4.0",
+    "svelte": "^5.56.0",
+    "svelte-check": "^4.4.8",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.60.0",
+    "vite": "^8.0.14",
+    "vitest": "^4.1.7",
+    "wrangler": "^4.95.0"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.12.23",
+    "zod": "^4.4.3"
+  }
+}

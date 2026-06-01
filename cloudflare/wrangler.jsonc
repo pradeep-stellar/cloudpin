@@ -1,0 +1,168 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cloudpin",
+  "main": ".svelte-kit/cloudflare/_worker.js",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat_v2"],
+  "upload_source_maps": true,
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": ".svelte-kit/cloudflare",
+    "binding": "ASSETS"
+  },
+  "vars": {
+    "PUBLIC_BASE_URL": "http://localhost:8787",
+    "FAVICON_PROVIDER": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url={url}&size=32"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cloudpin-local",
+      "database_id": "local-placeholder-d1-id",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS_BUCKET",
+      "bucket_name": "cloudpin-assets-local"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "JOBS",
+        "queue": "cloudpin-jobs-local"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "cloudpin-jobs-local",
+        "max_batch_size": 5,
+        "max_batch_timeout": 5,
+        "max_retries": 5,
+        "dead_letter_queue": "cloudpin-jobs-dlq-local"
+      }
+    ]
+  },
+  "workflows": [
+    {
+      "name": "cloudpin-import-local",
+      "binding": "IMPORT_WORKFLOW",
+      "class_name": "ImportWorkflow"
+    },
+    {
+      "name": "cloudpin-snapshot-local",
+      "binding": "SNAPSHOT_WORKFLOW",
+      "class_name": "SnapshotWorkflow"
+    }
+  ],
+  "env": {
+    "preview": {
+      "name": "cloudpin-preview",
+      "vars": {
+        "ACCESS_TEAM_DOMAIN": "replace-me.cloudflareaccess.com",
+        "ACCESS_AUD": "preview-access-aud",
+        "ADMIN_EMAILS": "",
+        "PUBLIC_BASE_URL": "https://preview.example.com"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "cloudpin-preview",
+          "database_id": "preview-placeholder-d1-id",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "ASSETS_BUCKET",
+          "bucket_name": "cloudpin-assets-preview"
+        }
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "JOBS",
+            "queue": "cloudpin-jobs-preview"
+          }
+        ],
+        "consumers": [
+          {
+            "queue": "cloudpin-jobs-preview",
+            "max_batch_size": 5,
+            "max_batch_timeout": 5,
+            "max_retries": 5,
+            "dead_letter_queue": "cloudpin-jobs-dlq-preview"
+          }
+        ]
+      },
+      "workflows": [
+        {
+          "name": "cloudpin-import-preview",
+          "binding": "IMPORT_WORKFLOW",
+          "class_name": "ImportWorkflow"
+        },
+        {
+          "name": "cloudpin-snapshot-preview",
+          "binding": "SNAPSHOT_WORKFLOW",
+          "class_name": "SnapshotWorkflow"
+        }
+      ]
+    },
+    "production": {
+      "name": "cloudpin",
+      "vars": {
+        "ACCESS_TEAM_DOMAIN": "replace-me.cloudflareaccess.com",
+        "ACCESS_AUD": "production-access-aud",
+        "ADMIN_EMAILS": "",
+        "PUBLIC_BASE_URL": "https://app.example.com"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "cloudpin-prod",
+          "database_id": "production-placeholder-d1-id",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "ASSETS_BUCKET",
+          "bucket_name": "cloudpin-assets-prod"
+        }
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "JOBS",
+            "queue": "cloudpin-jobs-prod"
+          }
+        ],
+        "consumers": [
+          {
+            "queue": "cloudpin-jobs-prod",
+            "max_batch_size": 5,
+            "max_batch_timeout": 5,
+            "max_retries": 5,
+            "dead_letter_queue": "cloudpin-jobs-dlq-prod"
+          }
+        ]
+      },
+      "workflows": [
+        {
+          "name": "cloudpin-import-prod",
+          "binding": "IMPORT_WORKFLOW",
+          "class_name": "ImportWorkflow"
+        },
+        {
+          "name": "cloudpin-snapshot-prod",
+          "binding": "SNAPSHOT_WORKFLOW",
+          "class_name": "SnapshotWorkflow"
+        }
+      ]
+    }
+  }
+}

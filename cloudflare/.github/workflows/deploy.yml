@@ -1,0 +1,47 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: cloudflare/package-lock.json
+      - name: Install
+        working-directory: cloudflare
+        run: npm ci
+      - name: Generate Worker types
+        working-directory: cloudflare
+        run: npx wrangler types
+      - name: Typecheck
+        working-directory: cloudflare
+        run: npm run typecheck
+      - name: Lint
+        working-directory: cloudflare
+        run: npm run lint
+      - name: Test
+        working-directory: cloudflare
+        run: npm test
+      - name: Build
+        working-directory: cloudflare
+        run: npm run build
+      - name: Apply D1 migrations (production)
+        working-directory: cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler d1 migrations apply DB --remote --env production
+      - name: Deploy Worker (production)
+        working-directory: cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy --env production
