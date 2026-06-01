@@ -132,6 +132,7 @@ These modules import nothing from Cloudflare or SvelteKit. They are intentionall
 - `name: "cloudpin"` for production, `-preview` for the preview env, and the default for local.
 - D1, R2, and Queue names carry the environment suffix (`-preview`, `-prod`) so the same code can deploy against either without collisions.
 - Bindings are `DB`, `ASSETS_BUCKET`, `JOBS`, `BROWSER`, plus the Workflow bindings `IMPORT_WORKFLOW` and `SNAPSHOT_WORKFLOW`.
+- `BROWSER` uses the Workers browser binding and the modern `.quickAction()` RPC method (compatibility date `2026-03-24`+). Local dev needs `remote: true` (or `wrangler dev --remote`) because `.quickAction()` is not yet supported in local mode. See `src/jobs/handlers/snapshot.ts` for the call site and the response shape parsing.
 - Vars in `env.production` (and `env.preview`) include `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `ADMIN_EMAILS`, `PUBLIC_BASE_URL`. Replace `replace-me` placeholders with real values before going live.
 - Secrets (`APP_SECRET`, `API_TOKEN_PEPPER`, `WAYBACK_ACCESS_KEY`, etc.) live in `wrangler secret put` or GitHub Actions secrets; they are never committed.
 

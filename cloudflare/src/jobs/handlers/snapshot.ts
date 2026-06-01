@@ -1,3 +1,24 @@
+// Cloudflare Browser Run (formerly Browser Rendering) exposes a Fetcher binding
+// with a `.quickAction()` RPC method that is the modern, idiomatic way to
+// capture snapshots and PDFs from a Worker. The .quickAction() method requires
+// a compatibility date of 2026-03-24 or later and is not yet supported in
+// local development mode (use `wrangler dev --remote` or `remote: true`).
+//
+// References:
+//   https://developers.cloudflare.com/browser-run/quick-actions/snapshot/
+//   https://developers.cloudflare.com/browser-run/quick-actions/pdf-endpoint/
+//   https://developers.cloudflare.com/browser-run/reference/wrangler/#bindings
+//
+// The wrangler-generated Env type still types the browser binding as a plain
+// `Fetcher`, so we narrow it here. The cast at the queue-consumer boundary is
+// safe because the binding is only ever invoked through this module.
+
+type QuickAction = 'snapshot' | 'pdf' | 'screenshot' | 'markdown' | 'content';
+
+export type BrowserRun = Fetcher & {
+  quickAction(method: QuickAction, params: Record<string, unknown>): Promise<Response>;
+};
+
 export type SnapshotFormat = 'html' | 'pdf';
 
 const HTML_MAX_BYTES = 5 * 1024 * 1024;
@@ -18,35 +39,33 @@ export type SnapshotResult = {
   filename: string;
 };
 
+type SnapshotResponse = {
+  success?: boolean;
+  result?: {
+    content?: string;
+  };
+};
+
 export async function captureHtml(
   url: string,
-  browser: Fetcher | undefined
+  browser: BrowserRun | undefined
 ): Promise<SnapshotResult | null> {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return null;
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
-  if (isPrivateHost(parsed.hostname)) return null;
-  if (!browser) {
-    return await fetchHtmlDirect(url);
-  }
+  const parsed = parseHttpUrl(url);
+  if (!parsed) return null;
+  if (!browser) return await fetchHtmlDirect(url);
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await browser.fetch('https://api.cloudflare.com/client/v4/accounts/snapshot', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, htmlOptions: { screenshot: false } }),
-      signal: controller.signal
-    });
+    const res = await browser.quickAction('snapshot', { url });
     if (!res.ok) return await fetchHtmlDirect(url);
-    const buf = await res.arrayBuffer();
-    if (buf.byteLength > HTML_MAX_BYTES) return null;
+    const data = (await res.json()) as SnapshotResponse;
+    const html = data.success ? data.result?.content : undefined;
+    if (!html) return await fetchHtmlDirect(url);
+    const bytes = new TextEncoder().encode(html);
+    if (bytes.byteLength > HTML_MAX_BYTES) return null;
     return {
-      body: buf,
+      body: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
       contentType: 'text/html; charset=utf-8',
       format: 'html',
       filename: `${parsed.hostname}-${Date.now()}.html`
@@ -56,6 +75,49 @@ export async function captureHtml(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export async function capturePdf(
+  url: string,
+  browser: BrowserRun | undefined
+): Promise<SnapshotResult | null> {
+  const parsed = parseHttpUrl(url);
+  if (!parsed) return null;
+  if (!browser) return await fetchPdfDirect(url);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await browser.quickAction('pdf', {
+      url,
+      pdfOptions: { printBackground: true }
+    });
+    if (!res.ok) return await fetchPdfDirect(url);
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength > PDF_MAX_BYTES) return null;
+    return {
+      body: buf,
+      contentType: 'application/pdf',
+      format: 'pdf',
+      filename: `${parsed.hostname}-${Date.now()}.pdf`
+    };
+  } catch {
+    return await fetchPdfDirect(url);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function parseHttpUrl(url: string): URL | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+  if (isPrivateHost(parsed.hostname)) return null;
+  return parsed;
 }
 
 async function fetchHtmlDirect(url: string): Promise<SnapshotResult | null> {
@@ -95,47 +157,11 @@ async function fetchHtmlDirect(url: string): Promise<SnapshotResult | null> {
   }
 }
 
-export async function capturePdf(
-  url: string,
-  browser: Fetcher | undefined
-): Promise<SnapshotResult | null> {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return null;
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
-  if (isPrivateHost(parsed.hostname)) return null;
-  if (!browser) {
-    return await fetchPdfWithWkhtmltopdf(url);
-  }
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const res = await browser.fetch('https://api.cloudflare.com/client/v4/accounts/pdf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, pdfOptions: { printBackground: true } }),
-      signal: controller.signal
-    });
-    if (!res.ok) return await fetchPdfWithWkhtmltopdf(url);
-    const buf = await res.arrayBuffer();
-    if (buf.byteLength > PDF_MAX_BYTES) return null;
-    return {
-      body: buf,
-      contentType: 'application/pdf',
-      format: 'pdf',
-      filename: `${parsed.hostname}-${Date.now()}.pdf`
-    };
-  } catch {
-    return await fetchPdfWithWkhtmltopdf(url);
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function fetchPdfWithWkhtmltopdf(_url: string): Promise<SnapshotResult | null> {
+async function fetchPdfDirect(_url: string): Promise<SnapshotResult | null> {
+  // Workers cannot shell out to a CLI like wkhtmltopdf. When the browser
+  // binding is absent (or .quickAction() fails in local dev) we have no
+  // server-side PDF path, so we fail soft and let the job retry via the
+  // queue's DLQ with a clear reason.
   return null;
 }
 

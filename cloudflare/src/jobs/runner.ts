@@ -3,7 +3,13 @@ import { fetchSiteMeta } from './handlers/metadata';
 import { fetchFavicon, isImageContentType } from './handlers/favicon';
 import { fetchPreviewImage } from './handlers/preview';
 import { submitToWayback } from './handlers/wayback';
-import { captureHtml, capturePdf, gzipBuffer, type SnapshotFormat } from './handlers/snapshot';
+import {
+  captureHtml,
+  capturePdf,
+  gzipBuffer,
+  type BrowserRun,
+  type SnapshotFormat
+} from './handlers/snapshot';
 import { completeAsset, createAsset, failAsset } from '../db/repositories/assets.repo';
 import { getBookmarkById, updateBookmark } from '../db/repositories/bookmarks.repo';
 import { r2Keys } from '../storage/asset-keys';
@@ -12,7 +18,7 @@ import { putObject } from '../storage/r2';
 export type QueueEnv = {
   DB: D1Database;
   ASSETS_BUCKET: R2Bucket;
-  BROWSER?: Fetcher;
+  BROWSER?: BrowserRun;
   FAVICON_PROVIDER?: string;
 };
 
