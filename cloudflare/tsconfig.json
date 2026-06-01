@@ -16,7 +16,5 @@
     "target": "es2022",
     "lib": ["es2022", "dom", "dom.iterable"],
     "types": ["vitest/globals", "./worker-configuration.d.ts"]
-  },
-  "include": ["src/**/*", "test/**/*", "*.config.ts", "*.config.js", "worker-configuration.d.ts"],
-  "exclude": ["node_modules", ".svelte-kit", "build"]
+  }
 }

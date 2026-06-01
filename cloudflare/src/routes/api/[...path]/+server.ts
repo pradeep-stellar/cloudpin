@@ -5,7 +5,7 @@ const handler: RequestHandler = async ({ request, platform }) => {
   const url = new URL(request.url);
   const honoRequest = new Request(url.toString(), request);
   const env = (platform?.env ?? {}) as Parameters<typeof honoApp.fetch>[1];
-  const executionCtx = platform?.context;
+  const executionCtx = platform?.context as Parameters<typeof honoApp.fetch>[2];
   const response = await honoApp.fetch(honoRequest, env, executionCtx);
   return response as unknown as Response;
 };

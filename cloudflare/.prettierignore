@@ -4,3 +4,4 @@ node_modules
 package-lock.json
 migrations/.wrangler
 dist
+worker-configuration.d.ts
