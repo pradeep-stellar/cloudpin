@@ -2,17 +2,20 @@
 /**
  * cloudpin migration tool
  *
- * Reads an existing Linkding SQLite database and produces an export that can
- * be imported into cloudpin via either the Netscape HTML import route or a
- * structured JSON import workflow.
+ * Reads an existing Linkding database (SQLite or PostgreSQL) and produces
+ * an export that can be imported into cloudpin via either the Netscape HTML
+ * import route or a structured JSON import workflow.
  *
  * Usage:
  *   pnpm tsx tools/migrate-linkding.ts --sqlite /path/to/db.sqlite3 --out bookmarks.html
+ *   pnpm tsx tools/migrate-linkding.ts --postgres-url postgres://user:pass@host/db --out bookmarks.html
  *   pnpm tsx tools/migrate-linkding.ts --sqlite /path/to/db.sqlite3 --out data.json --json
  *   pnpm tsx tools/migrate-linkding.ts --sqlite /path/to/db.sqlite3 --default-user-email me@x.com --dry-run
  *
  * The dry-run mode prints counts for users, bookmarks, tags, bundles, and
  * assets, and does not write any output.
+ *
+ * --sqlite and --postgres-url are mutually exclusive.
  */
 import { exportNetscape, type ExportBookmark } from '../src/domain/netscape';
 import { normalizeUrl } from '../src/domain/url-normalize';
@@ -67,28 +70,64 @@ type LinkdingDb = {
     id: number;
     bookmark_id: number;
     display_name: string;
-    file_size: number;
+    file_size: number | null;
     status: string;
   }[];
 };
 
-function parseArgs(argv: string[]): {
+type Queryable = {
+  query(sql: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
+};
+
+type CliArgs = {
   sqlite?: string;
+  postgresUrl?: string;
   out?: string;
   json?: boolean;
   dryRun?: boolean;
   defaultUserEmail?: string;
-} {
-  const args: ReturnType<typeof parseArgs> = {};
+  help?: boolean;
+};
+
+function parseArgs(argv: string[]): CliArgs {
+  const args: CliArgs = {};
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--sqlite') args.sqlite = argv[++i];
+    else if (a === '--postgres-url') args.postgresUrl = argv[++i];
     else if (a === '--out') args.out = argv[++i];
     else if (a === '--json') args.json = true;
     else if (a === '--dry-run') args.dryRun = true;
     else if (a === '--default-user-email') args.defaultUserEmail = argv[++i];
+    else if (a === '--help' || a === '-h') args.help = true;
   }
   return args;
+}
+
+function printHelp(): void {
+  console.log(`cloudpin migration tool
+
+Reads an existing Linkding database and produces an export for cloudpin.
+
+Usage:
+  migrate-linkding [options]
+
+Source (pick one):
+  --sqlite <path>           Path to a Linkding SQLite database file
+  --postgres-url <url>      PostgreSQL connection URL
+                            (postgres://user:pass@host:port/dbname)
+
+Output:
+  --out <path>              Output file path (required unless --dry-run)
+  --json                    Emit structured JSON instead of Netscape HTML
+  --dry-run                 Print source counts and exit without writing
+
+Filtering:
+  --default-user-email <e>  Pick a single source user when the database has many
+                            (defaults to the only user when the source has one)
+
+  -h, --help                Show this help
+`);
 }
 
 function readSqlite(path: string): LinkdingDb {
@@ -206,10 +245,150 @@ function readSqlite(path: string): LinkdingDb {
       file_size: number;
       status: string;
     }>
-  ).map((a) => ({ ...a }));
+  ).map((a) => ({ ...a, file_size: a.file_size ?? null }));
 
   return { users, bookmarks, tags, bundles, assets };
 }
+
+function toIsoString(v: unknown): string {
+  if (v instanceof Date) return v.toISOString();
+  return v as string;
+}
+
+function asInt(v: unknown): number {
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') return parseInt(v, 10);
+  throw new Error(`expected integer, got ${typeof v}: ${String(v)}`);
+}
+
+function asIntOrNull(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  return asInt(v);
+}
+
+/**
+ * Read all Linkding tables from a Postgres-shaped queryable.
+ *
+ * Exported for unit testing. The wrapping `readPostgres` opens a real
+ * `pg.Client`, awaits connect/end, and delegates here.
+ *
+ * SQL is intentionally the same as the SQLite branch (Linkding's table and
+ * column names are stable across the two backends) modulo the result
+ * coercion at the row level. Booleans are normalised to JS booleans
+ * (Postgres returns real booleans; SQLite returns 0/1, and the SQLite
+ * branch also normalises). Timestamps may come back as Date from the pg
+ * driver; `toIsoString` keeps the export shape identical to the SQLite
+ * branch.
+ */
+export async function readPostgresDb(q: Queryable): Promise<LinkdingDb> {
+  const usersResult = await q.query(
+    'SELECT id, email, username, is_admin FROM auth_user ORDER BY id ASC'
+  );
+  const users: LinkdingUser[] = usersResult.rows.map((u) => ({
+    id: asInt(u.id),
+    email: String(u.email),
+    username: String(u.username),
+    is_admin: !!u.is_admin
+  }));
+
+  const tagResult = await q.query('SELECT id, name, date_added FROM tag ORDER BY id ASC');
+  const tags: LinkdingTag[] = tagResult.rows.map((t) => ({
+    id: asInt(t.id),
+    name: String(t.name),
+    date_added: toIsoString(t.date_added)
+  }));
+
+  const bmResult = await q.query(
+    `SELECT id, url, title, description, notes, web_archive_snapshot_url,
+            is_archived, unread, shared, date_added, date_modified
+     FROM bookmark ORDER BY id ASC`
+  );
+  const tagJoinResult = await q.query(
+    `SELECT bt.bookmark_id, t.name
+     FROM bookmark_tag bt INNER JOIN tag t ON t.id = bt.tag_id`
+  );
+  const tagMap = new Map<number, string[]>();
+  for (const row of tagJoinResult.rows) {
+    const bookmarkId = asInt(row.bookmark_id);
+    const arr = tagMap.get(bookmarkId) ?? [];
+    arr.push(String(row.name));
+    tagMap.set(bookmarkId, arr);
+  }
+  const bookmarks: LinkdingBookmark[] = bmResult.rows.map((b) => ({
+    id: asInt(b.id),
+    url: String(b.url),
+    title: (b.title as string | null) ?? '',
+    description: (b.description as string | null) ?? '',
+    notes: (b.notes as string | null) ?? '',
+    web_archive_snapshot_url: (b.web_archive_snapshot_url as string | null) ?? '',
+    is_archived: !!b.is_archived,
+    unread: !!b.unread,
+    shared: !!b.shared,
+    date_added: toIsoString(b.date_added),
+    date_modified: toIsoString(b.date_modified),
+    tag_names: tagMap.get(asInt(b.id)) ?? []
+  }));
+
+  const bundleResult = await q.query(
+    `SELECT id, name, search, any_tags, all_tags, excluded_tags,
+            filter_unread, filter_shared, sort_order,
+            date_created, date_modified
+     FROM bundle ORDER BY sort_order ASC, id ASC`
+  );
+  const bundles: LinkdingBundle[] = bundleResult.rows.map((b) => ({
+    id: asInt(b.id),
+    name: String(b.name),
+    search: String(b.search ?? ''),
+    any_tags: String(b.any_tags ?? ''),
+    all_tags: String(b.all_tags ?? ''),
+    excluded_tags: String(b.excluded_tags ?? ''),
+    filter_unread: String(b.filter_unread ?? ''),
+    filter_shared: String(b.filter_shared ?? ''),
+    sort_order: asInt(b.sort_order),
+    date_created: toIsoString(b.date_created),
+    date_modified: toIsoString(b.date_modified)
+  }));
+
+  const assetResult = await q.query(
+    'SELECT id, bookmark_id, display_name, file_size, status FROM bookmark_asset ORDER BY id ASC'
+  );
+  const assets: LinkdingDb['assets'] = assetResult.rows.map((a) => ({
+    id: asInt(a.id),
+    bookmark_id: asInt(a.bookmark_id),
+    display_name: String(a.display_name ?? ''),
+    file_size: asIntOrNull(a.file_size),
+    status: String(a.status)
+  }));
+
+  return { users, bookmarks, tags, bundles, assets };
+}
+
+async function readPostgres(url: string): Promise<LinkdingDb> {
+  type PgClientCtor = new (u: string) => PgClient;
+  let Client: PgClientCtor;
+  try {
+    const mod = await import('pg');
+    // The real pg.Client.connect() returns Promise<Client> (self-referential);
+    // we narrow to the minimal shape we need so readPostgresDb can accept
+    // both the real client and the test fake without further casts.
+    Client = mod.Client as unknown as PgClientCtor;
+  } catch {
+    throw new Error('pg is required to use --postgres-url. Install with: npm i -D pg');
+  }
+  const client = new Client(url);
+  await client.connect();
+  try {
+    return await readPostgresDb(client);
+  } finally {
+    await client.end();
+  }
+}
+
+type PgClient = {
+  connect(): Promise<void>;
+  query(sql: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
+  end(): Promise<void>;
+};
 
 function summarize(db: LinkdingDb): string {
   return [
@@ -269,13 +448,34 @@ function toExportBookmarks(
   return { bookmarks: out, skipped, userEmail };
 }
 
+async function loadDb(args: CliArgs): Promise<LinkdingDb> {
+  if (args.sqlite) {
+    console.log('Source: SQLite');
+    return readSqlite(args.sqlite);
+  }
+  if (args.postgresUrl) {
+    console.log('Source: PostgreSQL');
+    return await readPostgres(args.postgresUrl);
+  }
+  throw new Error('No source database specified');
+}
+
 async function main() {
   const args = parseArgs(process.argv);
-  if (!args.sqlite) {
-    console.error('Usage: migrate-linkding --sqlite <path> [--out <path>] [--json] [--dry-run]');
+  if (args.help) {
+    printHelp();
+    return;
+  }
+  if (args.sqlite && args.postgresUrl) {
+    console.error('Error: --sqlite and --postgres-url are mutually exclusive');
     process.exit(2);
   }
-  const db = readSqlite(args.sqlite);
+  if (!args.sqlite && !args.postgresUrl) {
+    printHelp();
+    process.exit(2);
+  }
+
+  const db = await loadDb(args);
   console.log('Source database:');
   console.log(summarize(db));
 
@@ -324,4 +524,16 @@ function importNetscape(): never {
   throw new Error('Use the in-app import route, not this tool, to load Netscape files');
 }
 
-void main();
+// Only invoke main() when this file is the entry point, so that unit tests
+// can import `readPostgresDb` without triggering process.exit().
+const isMain = (() => {
+  if (!process.argv[1]) return false;
+  try {
+    return import.meta.url === new URL(`file://${process.argv[1]}`).href;
+  } catch {
+    return false;
+  }
+})();
+if (isMain) {
+  void main();
+}
