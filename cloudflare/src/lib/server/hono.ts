@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { resolveAuth } from './auth/middleware';
-import { bookmarksRouter } from '../../server/api/bookmarks.routes';
-import { tagsRouter } from '../../server/api/tags.routes';
-import { profileRouter } from '../../server/api/profile.routes';
+import { bookmarksRouter } from '$server/api/bookmarks.routes';
+import { tagsRouter } from '$server/api/tags.routes';
+import { profileRouter } from '$server/api/profile.routes';
 
 type Bindings = {
   DB: D1Database;

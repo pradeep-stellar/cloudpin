@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { getDb } from '../../../db/client';
-import { userProfiles, users } from '../../../db/schema';
+import { getDb } from '$db/client';
+import { userProfiles, users } from '$db/schema';
 import type { AccessIdentity } from './types';
 
 export type UpsertResult = {

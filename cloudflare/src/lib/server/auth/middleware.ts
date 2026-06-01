@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { getDb } from '../../../db/client';
-import { apiTokens, users } from '../../../db/schema';
+import { getDb } from '$db/client';
+import { apiTokens, users } from '$db/schema';
 import { extractBearerToken, validateTokenShape, hashApiToken, safeEqualHash } from './api-token';
 import { AccessJwtValidator, isAccessJwtError } from './access-jwt';
 import { SESSION_COOKIE_NAME, verifySessionCookie } from './session';

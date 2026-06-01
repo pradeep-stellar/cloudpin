@@ -13,7 +13,15 @@ const config = {
     }),
     alias: {
       $lib: 'src/lib',
-      '$lib/*': 'src/lib/*'
+      '$lib/*': 'src/lib/*',
+      $db: 'src/db',
+      '$db/*': 'src/db/*',
+      $domain: 'src/domain',
+      '$domain/*': 'src/domain/*',
+      $validation: 'src/validation',
+      '$validation/*': 'src/validation/*',
+      $server: 'src/server',
+      '$server/*': 'src/server/*'
     }
   }
 };

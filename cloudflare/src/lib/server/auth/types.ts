@@ -17,8 +17,7 @@ export type SessionUser = {
 export type AuthState =
   | { kind: 'unauthenticated' }
   | { kind: 'api_token'; user: SessionUser; tokenId: number }
-  | { kind: 'browser_session'; user: SessionUser; sessionId: string }
-  | { kind: 'public'; user: null };
+  | { kind: 'browser_session'; user: SessionUser; sessionId: string };
 
 export type AuthContext = {
   state: AuthState;

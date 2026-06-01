@@ -13,6 +13,14 @@ export default ts.config(
         ...globals.browser,
         ...globals.node
       }
+    },
+    rules: {
+      'svelte/no-navigation-without-resolve': 'off',
+      'svelte/prefer-svelte-reactivity': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }
+      ]
     }
   },
   {
@@ -24,6 +32,13 @@ export default ts.config(
     }
   },
   {
-    ignores: ['build/', '.svelte-kit/', 'node_modules/', 'worker-configuration.d.ts', '.wrangler/']
+    ignores: [
+      'build/',
+      '.svelte-kit/',
+      'node_modules/',
+      'worker-configuration.d.ts',
+      '.wrangler/',
+      'scripts/'
+    ]
   }
 );
