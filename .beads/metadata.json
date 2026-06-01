@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "cloudpin",
+  "project_id": "f7e3cc65-d872-4c1c-86be-c1b6e2da249f"
+}
