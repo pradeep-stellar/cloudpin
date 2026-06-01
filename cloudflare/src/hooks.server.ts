@@ -28,7 +28,17 @@ export const handle: Handle = async ({ event, resolve }) => {
     devIdentity: defaultDevIdentity()
   });
 
-  if (event.locals.auth.isMutation && event.locals.auth.state.kind === 'browser_session') {
+  // CSRF is enforced for browser sessions on mutations, with one explicit
+  // exception: the e2e bypass. Playwright runs against `wrangler dev` with
+  // CLOUDPIN_E2E_BYPASS_AUTH=1; in that mode the dev user is fixed, the
+  // server is local, and the request Origin always matches the dev origin.
+  // Skipping CSRF here is safe and lets specs exercise the real form/action
+  // path. Production must never set this flag.
+  if (
+    !e2eBypass &&
+    event.locals.auth.isMutation &&
+    event.locals.auth.state.kind === 'browser_session'
+  ) {
     const csrf = await checkCsrf({
       env,
       state: event.locals.auth.state,

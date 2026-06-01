@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { enhance } from '$app/forms';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -58,12 +59,12 @@
 
   <footer class="actions">
     <a class="btn btn-primary" href={`/bookmarks/${b.id}/edit`}>Edit</a>
-    <form method="POST" action="?/toggleArchive">
+    <form method="POST" action="?/toggleArchive" use:enhance>
       <input type="hidden" name="id" value={b.id} />
       <input type="hidden" name="archive" value={b.is_archived ? 'false' : 'true'} />
       <button class="btn" type="submit">{b.is_archived ? 'Unarchive' : 'Archive'}</button>
     </form>
-    <form method="POST" action="?/delete">
+    <form method="POST" action="?/delete" use:enhance>
       <input type="hidden" name="id" value={b.id} />
       <button
         class="btn btn-danger"
