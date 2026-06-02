@@ -37,11 +37,15 @@ export const actions: Actions = {
       });
     }
     const { tag_names, ...rest } = parsed.data;
-    const result = await createBookmark(platform!.env.DB as D1Database, {
-      ownerId: user.id,
-      tagNames: tag_names,
-      ...rest
-    });
+    const result = await createBookmark(
+      platform!.env.DB as D1Database,
+      {
+        ownerId: user.id,
+        tagNames: tag_names,
+        ...rest
+      },
+      { upsert: true }
+    );
     throw redirect(303, `/bookmarks/${result.id}/details`);
   }
 };

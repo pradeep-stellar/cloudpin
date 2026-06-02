@@ -152,15 +152,51 @@ export type CreateBookmarkInput = {
   dateModified?: string;
 };
 
+export type CreateBookmarkOptions = {
+  // If true and a bookmark with the same normalized URL already exists for
+  // this owner, merge the provided fields into the existing record (the
+  // Linkding REST API behavior). If false (default) the existing record
+  // is returned untouched. Tag replacement is opt-in: when tagNames is
+  // provided it always replaces, regardless of this flag.
+  upsert?: boolean;
+};
+
 export type CreateBookmarkResult = {
   id: number;
   created: boolean;
   bookmark: typeof bookmarks.$inferSelect;
 };
 
+// Pure helper: build an update patch from the create input, preserving
+// only fields the caller actually supplied. Returns an empty object when
+// no fields were set so the caller can skip the no-op write.
+export function buildUpsertPatch(input: CreateBookmarkInput): UpdateBookmarkInput['patch'] {
+  const patch: UpdateBookmarkInput['patch'] = {};
+  if (input.title !== undefined) patch.title = input.title;
+  if (input.description !== undefined) patch.description = input.description;
+  if (input.notes !== undefined) patch.notes = input.notes;
+  if (input.isArchived !== undefined) patch.isArchived = input.isArchived;
+  if (input.unread !== undefined) patch.unread = input.unread;
+  if (input.shared !== undefined) patch.shared = input.shared;
+  return patch;
+}
+
+// Pure helper: decide whether an API create request should be treated as
+// an upsert. The rule is: any field beyond `url` was explicitly present
+// in the raw request body, or `tag_names` was explicitly sent (even as
+// an empty array, which signals "clear my tags").
+export function shouldUpsertCreateRequest(rawBody: unknown): boolean {
+  if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) return false;
+  for (const key of Object.keys(rawBody as Record<string, unknown>)) {
+    if (key !== 'url') return true;
+  }
+  return false;
+}
+
 export async function createBookmark(
   d1: D1Database,
-  input: CreateBookmarkInput
+  input: CreateBookmarkInput,
+  options: CreateBookmarkOptions = {}
 ): Promise<CreateBookmarkResult> {
   const db = getDb(d1);
   const url = input.url;
@@ -168,6 +204,22 @@ export async function createBookmark(
 
   const existing = await findBookmarkByNormalizedUrl(d1, input.ownerId, normalized);
   if (existing) {
+    if (options.upsert) {
+      const patch = buildUpsertPatch(input);
+      let updated = existing;
+      if (Object.keys(patch).length > 0) {
+        const result = await updateBookmark(d1, {
+          ownerId: input.ownerId,
+          id: existing.id,
+          patch
+        });
+        if (result) updated = result;
+      }
+      if (input.tagNames !== undefined) {
+        await setBookmarkTags(d1, existing.id, input.ownerId, input.tagNames);
+      }
+      return { id: existing.id, created: false, bookmark: updated };
+    }
     return { id: existing.id, created: false, bookmark: existing };
   }
 

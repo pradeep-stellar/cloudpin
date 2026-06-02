@@ -1,23 +1,11 @@
 import { error, fail, redirect, type Actions, type ServerLoad } from '@sveltejs/kit';
-import {
-  DuplicateUrlError,
-  getBookmarkById,
-  updateBookmark
-} from '$db/repositories/bookmarks.repo';
+import { getBookmarkById, updateBookmark } from '$db/repositories/bookmarks.repo';
 import { getDb } from '$db/client';
 import { bookmarkTags, tags } from '$db/schema';
 import { BookmarkUpdate } from '$validation/bookmark.schemas';
 import { splitTags, normalizeTagName } from '$domain/tags';
 import { eq } from 'drizzle-orm';
-
-// Map repository-level errors from updateBookmark to a SvelteKit
-// fail() shape. Returns null when the error should propagate.
-export function mapUpdateError(err: unknown): { status: number; body: { error: string } } | null {
-  if (err instanceof DuplicateUrlError) {
-    return { status: 409, body: { error: 'duplicate_url' } };
-  }
-  return null;
-}
+import { mapUpdateError } from '$lib/server/edit-bookmark';
 
 export const load: ServerLoad = async ({ locals, params, platform }) => {
   if (locals.auth.state.kind === 'unauthenticated') {

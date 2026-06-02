@@ -13,6 +13,7 @@ import {
   getBookmarkById,
   listBookmarks,
   setBookmarkArchive,
+  shouldUpsertCreateRequest,
   updateBookmark,
   DuplicateUrlError
 } from '../../db/repositories/bookmarks.repo';
@@ -111,12 +112,17 @@ bookmarksRouter.post('/', async (c) => {
   const parsed = BookmarkCreate.safeParse(body);
   if (!parsed.success) return handleError(parsed.error);
   const { tag_names, ...rest } = parsed.data;
+  const upsert = shouldUpsertCreateRequest(body);
   try {
-    const result = await createBookmark(c.env.DB, {
-      ownerId: user.id,
-      tagNames: tag_names,
-      ...rest
-    });
+    const result = await createBookmark(
+      c.env.DB,
+      {
+        ownerId: user.id,
+        tagNames: tag_names,
+        ...rest
+      },
+      { upsert }
+    );
     const item = await getBookmarkById(c.env.DB, user.id, result.id);
     return c.json(item, { status: result.created ? 201 : 200 });
   } catch (err) {

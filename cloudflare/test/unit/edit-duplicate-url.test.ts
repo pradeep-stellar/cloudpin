@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapUpdateError } from '../../src/routes/bookmarks/[bookmarkId]/edit/+page.server';
+import { mapUpdateError } from '../../src/lib/server/edit-bookmark';
 import { DuplicateUrlError } from '../../src/db/repositories/bookmarks.repo';
 
 describe('mapUpdateError', () => {
