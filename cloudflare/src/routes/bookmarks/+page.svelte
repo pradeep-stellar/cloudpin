@@ -1,11 +1,15 @@
 <script lang="ts">
   import BookmarkCard from '$lib/components/BookmarkCard.svelte';
   import TagCloud from '$lib/components/TagCloud.svelte';
+  import { enhance } from '$app/forms';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import type { PageData } from './$types';
 
-  let { data }: { data: PageData } = $props();
+  let {
+    data,
+    form
+  }: { data: PageData; form: { ok?: boolean; action?: string; count?: number } | null } = $props();
 
   const totalPages = $derived(Math.max(1, Math.ceil(data.total / data.pageSize)));
 
@@ -80,13 +84,17 @@
       <a class="btn btn-primary" href="/bookmarks/new">+ New</a>
     </header>
 
+    {#if form?.ok}
+      <p class="flash">Bulk {form.action} applied to {form.count} bookmark(s).</p>
+    {/if}
+
     {#if data.bookmarks.length === 0}
       <div class="empty">
         <p>No bookmarks yet.</p>
         <a class="btn btn-primary" href="/bookmarks/new">Add your first bookmark</a>
       </div>
     {:else}
-      <form method="POST" action="?/bulkAction" class="bulk-form">
+      <form method="POST" action="?/bulkAction" use:enhance class="bulk-form">
         <div class="bulk-bar">
           <label class="bulk-label">
             <span>Action:</span>
@@ -221,6 +229,15 @@
     padding: 24px;
     text-align: center;
     color: var(--fg-muted);
+  }
+  .flash {
+    background: var(--bg-elev);
+    border: 1px solid var(--success);
+    border-radius: var(--radius);
+    color: var(--success);
+    padding: 8px 12px;
+    margin: 0;
+    font-size: 13px;
   }
   .pager {
     display: flex;
