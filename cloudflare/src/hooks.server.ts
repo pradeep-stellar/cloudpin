@@ -1,5 +1,6 @@
 import type { Handle } from '@sveltejs/kit';
 import { resolveAuth, checkCsrf, defaultDevIdentity } from '$lib/server/auth/middleware';
+import { decideHostnameRouting } from '$domain/hostname-routing';
 
 // End-to-end tests need to run against a built bundle served by `wrangler
 // dev` or `vite preview` without standing up a full Cloudflare Access tunnel.
@@ -20,6 +21,20 @@ export function readE2EBypass(env: { CLOUDPIN_E2E_BYPASS_AUTH?: string }): boole
 export const handle: Handle = async ({ event, resolve }) => {
   const env = (event.platform?.env ?? {}) as unknown as Parameters<typeof resolveAuth>[0]['env'];
   const e2eBypass = readE2EBypass(env);
+
+  // Hostname gate: when the request hits the configured public host
+  // (e.g. share.example.com), only the /public/* and /health paths are
+  // served. Everything else returns 404 without ever entering the
+  // private app. The e2e bypass is exempted so Playwright can hit the
+  // private app under its own host header.
+  const publicHostname = (env as { PUBLIC_HOSTNAME?: string }).PUBLIC_HOSTNAME;
+  if (publicHostname && !e2eBypass) {
+    const hostDecision = decideHostnameRouting(event.request.url, publicHostname);
+    if (hostDecision.kind === 'public' && !hostDecision.allowed) {
+      return new Response('not_found', { status: 404 });
+    }
+  }
+
   const allowDevBypass = import.meta.env.DEV || e2eBypass;
   event.locals.auth = await resolveAuth({
     request: event.request,

@@ -14,7 +14,8 @@
   },
   "vars": {
     "PUBLIC_BASE_URL": "http://localhost:8787",
-    "FAVICON_PROVIDER": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url={url}&size=32"
+    "FAVICON_PROVIDER": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url={url}&size=32",
+    "PUBLIC_HOSTNAME": ""
   },
   "d1_databases": [
     {
@@ -69,7 +70,8 @@
         "ACCESS_TEAM_DOMAIN": "replace-me.cloudflareaccess.com",
         "ACCESS_AUD": "preview-access-aud",
         "ADMIN_EMAILS": "",
-        "PUBLIC_BASE_URL": "https://preview.example.com"
+        "PUBLIC_BASE_URL": "https://preview.example.com",
+        "PUBLIC_HOSTNAME": "share-preview.example.com"
       },
       "d1_databases": [
         {
@@ -125,7 +127,8 @@
         "ACCESS_TEAM_DOMAIN": "replace-me.cloudflareaccess.com",
         "ACCESS_AUD": "production-access-aud",
         "ADMIN_EMAILS": "",
-        "PUBLIC_BASE_URL": "https://app.example.com"
+        "PUBLIC_BASE_URL": "https://app.example.com",
+        "PUBLIC_HOSTNAME": "share.example.com"
       },
       "d1_databases": [
         {
