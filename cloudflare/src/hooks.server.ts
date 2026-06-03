@@ -1,5 +1,6 @@
 import type { Handle } from '@sveltejs/kit';
 import { resolveAuth, checkCsrf, defaultDevIdentity } from '$lib/server/auth/middleware';
+import { readE2EBypass } from '$lib/server/auth/e2e-bypass';
 import { decideHostnameRouting } from '$domain/hostname-routing';
 
 // End-to-end tests need to run against a built bundle served by `wrangler
@@ -9,14 +10,7 @@ import { decideHostnameRouting } from '$domain/hostname-routing';
 // fall back to globalThis.process.env for `vite preview` and any other
 // Node-style runner. The bypass is gated on this explicit opt-in — it never
 // engages in normal dev or production.
-export function readE2EBypass(env: { CLOUDPIN_E2E_BYPASS_AUTH?: string }): boolean {
-  if (env.CLOUDPIN_E2E_BYPASS_AUTH === '1') return true;
-  try {
-    return globalThis.process?.env?.CLOUDPIN_E2E_BYPASS_AUTH === '1';
-  } catch {
-    return false;
-  }
-}
+export { readE2EBypass };
 
 export const handle: Handle = async ({ event, resolve }) => {
   const env = (event.platform?.env ?? {}) as unknown as Parameters<typeof resolveAuth>[0]['env'];

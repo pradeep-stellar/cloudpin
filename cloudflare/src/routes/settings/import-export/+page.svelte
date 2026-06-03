@@ -1,4 +1,8 @@
 <script lang="ts">
+  import CsrfInput from '$lib/components/CsrfInput.svelte';
+  import type { PageData } from './$types';
+
+  let { data }: { data: PageData } = $props();
   let result = $state<{
     ok: boolean;
     created?: number;
@@ -54,7 +58,13 @@
     the original title, description, notes, tags, archived state, and date added.
   </p>
 
-  <form onsubmit={uploadImport}>
+  <form
+    method="POST"
+    action="/settings/import"
+    enctype="multipart/form-data"
+    onsubmit={uploadImport}
+  >
+    <CsrfInput token={data.csrfToken} />
     <label>
       <span>HTML file</span>
       <input type="file" name="file" accept=".html,text/html" required />

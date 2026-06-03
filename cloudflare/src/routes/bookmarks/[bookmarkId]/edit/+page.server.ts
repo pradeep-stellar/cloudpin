@@ -6,6 +6,7 @@ import { BookmarkUpdate } from '$validation/bookmark.schemas';
 import { splitTags, normalizeTagName } from '$domain/tags';
 import { eq } from 'drizzle-orm';
 import { mapUpdateError } from '$lib/server/edit-bookmark';
+import { requireFormCsrf } from '$lib/server/auth/form-action';
 
 export const load: ServerLoad = async ({ locals, params, platform }) => {
   if (locals.auth.state.kind === 'unauthenticated') {
@@ -28,6 +29,8 @@ export const actions: Actions = {
     if (locals.auth.state.kind === 'unauthenticated') {
       return fail(401, { error: 'unauthenticated' });
     }
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const id = Number(params.bookmarkId);
     if (!Number.isFinite(id) || id <= 0) return fail(400, { error: 'invalid_id' });

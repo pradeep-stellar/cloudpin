@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import CsrfInput from '$lib/components/CsrfInput.svelte';
   import type { ActionData, PageData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -14,6 +15,7 @@
 <h1>Edit bookmark</h1>
 
 <form method="POST" use:enhance class="form">
+  <CsrfInput token={data.csrfToken} />
   <label>
     <span>URL *</span>
     <input type="url" name="url" required value={b.url} />

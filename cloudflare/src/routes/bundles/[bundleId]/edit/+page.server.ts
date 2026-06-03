@@ -1,5 +1,6 @@
 import { redirect, error, fail, type Actions, type ServerLoad } from '@sveltejs/kit';
 import { getBundle, updateBundle, deleteBundle } from '$db/repositories/bundles.repo';
+import { requireFormCsrf } from '$lib/server/auth/form-action';
 
 export const load: ServerLoad = async ({ locals, platform, params }) => {
   if (locals.auth.state.kind === 'unauthenticated') {
@@ -21,6 +22,8 @@ function parseTriState(v: string): 'yes' | 'no' | 'off' {
 export const actions: Actions = {
   update: async ({ request, locals, platform, params }) => {
     if (locals.auth.state.kind === 'unauthenticated') return fail(401);
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const id = Number(params.bundleId);
     if (!Number.isFinite(id) || id <= 0) return fail(400, { error: 'invalid_id' });
@@ -40,8 +43,10 @@ export const actions: Actions = {
     return { ok: true };
   },
 
-  delete: async ({ locals, platform, params }) => {
+  delete: async ({ request, locals, platform, params }) => {
     if (locals.auth.state.kind === 'unauthenticated') return fail(401);
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const id = Number(params.bundleId);
     if (!Number.isFinite(id) || id <= 0) return fail(400, { error: 'invalid_id' });

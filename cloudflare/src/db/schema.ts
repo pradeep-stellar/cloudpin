@@ -157,7 +157,10 @@ export const bookmarkAssets = sqliteTable(
   },
   (table) => [
     index('idx_assets_bookmark_created').on(table.bookmarkId, table.dateCreated),
-    index('idx_assets_status_created').on(table.status, table.dateCreated)
+    index('idx_assets_status_created').on(table.status, table.dateCreated),
+    uniqueIndex('idx_assets_pending_bookmark_type')
+      .on(table.bookmarkId, table.assetType)
+      .where(sql`${table.status} = 'pending'`)
   ]
 );
 

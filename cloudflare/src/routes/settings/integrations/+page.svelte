@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import CsrfInput from '$lib/components/CsrfInput.svelte';
   import type { ActionData, PageData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -47,6 +48,7 @@
       };
     }}
   >
+    <CsrfInput token={data.csrfToken} />
     <label>
       <span>Token name</span>
       <input
@@ -95,6 +97,7 @@
             <td>
               {#if !t.revokedAt}
                 <form method="POST" action="?/revokeToken" use:enhance>
+                  <CsrfInput token={data.csrfToken} />
                   <input type="hidden" name="id" value={t.id} />
                   <button class="btn danger" type="submit">Revoke</button>
                 </form>
@@ -115,9 +118,11 @@
     </p>
     <div class="actions">
       <form method="POST" action="?/rotateFeed" use:enhance>
+        <CsrfInput token={data.csrfToken} />
         <button class="btn" type="submit">Rotate</button>
       </form>
       <form method="POST" action="?/deleteFeed" use:enhance>
+        <CsrfInput token={data.csrfToken} />
         <button class="btn danger" type="submit">Delete</button>
       </form>
     </div>
@@ -137,6 +142,7 @@
   {:else}
     <p>No feed token yet.</p>
     <form method="POST" action="?/rotateFeed" use:enhance>
+      <CsrfInput token={data.csrfToken} />
       <button class="btn btn-primary" type="submit">Generate feed token</button>
     </form>
   {/if}

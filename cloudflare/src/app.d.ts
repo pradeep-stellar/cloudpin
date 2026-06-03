@@ -15,6 +15,7 @@ declare global {
         FAVICON_PROVIDER?: string;
         APP_SECRET?: string;
         API_TOKEN_PEPPER?: string;
+        CLOUDPIN_E2E_BYPASS_AUTH?: string;
         [key: string]: unknown;
       };
       context: {

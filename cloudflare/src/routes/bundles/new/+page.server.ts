@@ -1,5 +1,6 @@
 import { redirect, fail, type Actions, type ServerLoad } from '@sveltejs/kit';
 import { createBundle } from '$db/repositories/bundles.repo';
+import { requireFormCsrf } from '$lib/server/auth/form-action';
 
 export const load: ServerLoad = async ({ locals }) => {
   if (locals.auth.state.kind === 'unauthenticated') {
@@ -11,6 +12,8 @@ export const load: ServerLoad = async ({ locals }) => {
 export const actions: Actions = {
   default: async ({ request, locals, platform }) => {
     if (locals.auth.state.kind === 'unauthenticated') return fail(401);
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const data = await request.formData();
     const name = String(data.get('name') ?? '').trim();

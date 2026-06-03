@@ -1,8 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import type { ActionData } from './$types';
+  import CsrfInput from '$lib/components/CsrfInput.svelte';
+  import type { ActionData, PageData } from './$types';
 
-  let { form }: { form: ActionData } = $props();
+  let { data, form }: { data: PageData; form: ActionData } = $props();
 </script>
 
 <svelte:head>
@@ -14,6 +15,7 @@
 <h1>New bookmark</h1>
 
 <form method="POST" use:enhance class="form">
+  <CsrfInput token={data.csrfToken} />
   <label>
     <span>URL *</span>
     <input

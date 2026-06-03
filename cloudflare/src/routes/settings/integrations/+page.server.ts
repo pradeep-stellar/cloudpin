@@ -2,6 +2,7 @@ import { redirect, fail, type Actions, type ServerLoad } from '@sveltejs/kit';
 import { listTokensForUser, createToken, revokeToken } from '$db/repositories/tokens.repo';
 import { getFeedToken, rotateFeedToken, deleteFeedToken } from '$db/repositories/feed-tokens.repo';
 import { env } from '$env/dynamic/private';
+import { requireFormCsrf } from '$lib/server/auth/form-action';
 
 export const load: ServerLoad = async ({ locals, platform, url }) => {
   if (locals.auth.state.kind === 'unauthenticated') {
@@ -23,6 +24,8 @@ export const load: ServerLoad = async ({ locals, platform, url }) => {
 export const actions: Actions = {
   createToken: async ({ request, locals, platform }) => {
     if (locals.auth.state.kind === 'unauthenticated') return fail(401);
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const data = await request.formData();
     const name = String(data.get('name') ?? '').trim() || 'token';
@@ -35,6 +38,8 @@ export const actions: Actions = {
 
   revokeToken: async ({ request, locals, platform }) => {
     if (locals.auth.state.kind === 'unauthenticated') return fail(401);
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const data = await request.formData();
     const id = Number(data.get('id'));
@@ -44,15 +49,19 @@ export const actions: Actions = {
     return { ok: true, action: 'revokeToken' };
   },
 
-  rotateFeed: async ({ locals, platform }) => {
+  rotateFeed: async ({ request, locals, platform }) => {
     if (locals.auth.state.kind === 'unauthenticated') return fail(401);
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const r = await rotateFeedToken(platform!.env.DB as D1Database, user.id);
     return { ok: true, action: 'rotateFeed', rawToken: r.rawToken };
   },
 
-  deleteFeed: async ({ locals, platform }) => {
+  deleteFeed: async ({ request, locals, platform }) => {
     if (locals.auth.state.kind === 'unauthenticated') return fail(401);
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     await deleteFeedToken(platform!.env.DB as D1Database, user.id);
     return { ok: true, action: 'deleteFeed' };

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import CsrfInput from '$lib/components/CsrfInput.svelte';
   import type { ActionData, PageData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -26,6 +27,7 @@
   {/if}
 
   <form method="POST" use:enhance>
+    <CsrfInput token={data.csrfToken} />
     <h2 id="display">Display</h2>
     <label>
       <span>Theme</span>

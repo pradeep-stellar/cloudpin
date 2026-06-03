@@ -1,5 +1,6 @@
 import { redirect, fail, type Actions, type ServerLoad } from '@sveltejs/kit';
 import { listTagsWithCounts, renameTag, mergeTags, deleteTag } from '$db/repositories/tags.repo';
+import { requireFormCsrf } from '$lib/server/auth/form-action';
 
 export const load: ServerLoad = async ({ locals, platform, url }) => {
   if (locals.auth.state.kind === 'unauthenticated') {
@@ -16,6 +17,8 @@ export const load: ServerLoad = async ({ locals, platform, url }) => {
 export const actions: Actions = {
   rename: async ({ request, locals, platform }) => {
     if (locals.auth.state.kind === 'unauthenticated') return fail(401);
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const db = platform!.env.DB as D1Database;
     const data = await request.formData();
@@ -34,6 +37,8 @@ export const actions: Actions = {
 
   merge: async ({ request, locals, platform }) => {
     if (locals.auth.state.kind === 'unauthenticated') return fail(401);
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const db = platform!.env.DB as D1Database;
     const data = await request.formData();
@@ -58,6 +63,8 @@ export const actions: Actions = {
 
   delete: async ({ request, locals, platform }) => {
     if (locals.auth.state.kind === 'unauthenticated') return fail(401);
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const db = platform!.env.DB as D1Database;
     const data = await request.formData();

@@ -10,7 +10,6 @@ describe('readE2EBypass', () => {
   });
 
   afterEach(() => {
-    // @ts-expect-error - restoring real process
     globalThis.process = originalProcess;
     vi.restoreAllMocks();
   });

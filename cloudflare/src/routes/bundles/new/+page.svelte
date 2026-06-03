@@ -1,5 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import CsrfInput from '$lib/components/CsrfInput.svelte';
+  import type { PageData } from './$types';
+
+  let { data }: { data: PageData } = $props();
 </script>
 
 <svelte:head>
@@ -10,6 +14,7 @@
 <h1>New bundle</h1>
 
 <form method="POST" use:enhance>
+  <CsrfInput token={data.csrfToken} />
   <label>
     <span>Name</span>
     <input type="text" name="name" required placeholder="e.g. Reading list" />

@@ -19,8 +19,22 @@ following before going to production.
 - [ ] Browser session cookies are `Secure`, `HttpOnly`, `SameSite=Lax`.
 - [ ] App session cookies have a 30-day TTL.
 - [ ] CSRF tokens are validated for every mutating browser request.
+- [ ] CSRF is enforced on every SvelteKit form action (not just the API):
+      `bookmarks/{new,shared,archived,[id]/{edit,details}}`,
+      `bundles/{,[id]/edit}`, `tags`, `settings/{,integrations}`.
+      Each form drops a hidden `_csrf` input from the layout's
+      `data.csrfToken`; the global CSRF hook and per-action guard run
+      the token through `checkCsrf` before any mutation.
 - [ ] API token requests bypass CSRF but require bearer auth.
-- [ ] The HMAC CSRF token uses `APP_SECRET` and the user's session id.
+- [ ] The HMAC CSRF token uses `APP_SECRET`, the user's id, the session
+      id, and a UTC-day bucket. Tokens rotate once a day so a stolen
+      form is useless by the next morning. The CSRF skip under
+      `CLOUDPIN_E2E_BYPASS_AUTH=1` is documented in `hooks.server.ts`
+      and is the only sanctioned way to bypass the check.
+- [ ] The `/settings/import` upload is a mutating SvelteKit request
+      handler, so the global CSRF hook protects it before the import
+      runs. The fetch from the client picks up the hidden `_csrf` field
+      automatically.
 
 ## Tokens
 

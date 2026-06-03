@@ -5,6 +5,7 @@ import {
   deleteBookmark
 } from '$db/repositories/bookmarks.repo';
 import { displayUrl } from '$domain/url-normalize';
+import { requireFormCsrf } from '$lib/server/auth/form-action';
 
 export const load: ServerLoad = async ({ locals, params, platform }) => {
   if (locals.auth.state.kind === 'unauthenticated') {
@@ -28,6 +29,8 @@ export const load: ServerLoad = async ({ locals, params, platform }) => {
 export const actions: Actions = {
   toggleArchive: async ({ request, locals, platform }) => {
     if (locals.auth.state.kind === 'unauthenticated') return fail(401);
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const data = await request.formData();
     const id = Number(data.get('id'));
@@ -38,6 +41,8 @@ export const actions: Actions = {
   },
   delete: async ({ request, locals, platform }) => {
     if (locals.auth.state.kind === 'unauthenticated') return fail(401);
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const data = await request.formData();
     const id = Number(data.get('id'));

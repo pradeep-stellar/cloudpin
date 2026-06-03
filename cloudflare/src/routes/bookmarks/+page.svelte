@@ -1,6 +1,7 @@
 <script lang="ts">
   import BookmarkCard from '$lib/components/BookmarkCard.svelte';
   import TagCloud from '$lib/components/TagCloud.svelte';
+  import CsrfInput from '$lib/components/CsrfInput.svelte';
   import { enhance } from '$app/forms';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
@@ -95,6 +96,7 @@
       </div>
     {:else}
       <form method="POST" action="?/bulkAction" use:enhance class="bulk-form">
+        <CsrfInput token={data.csrfToken} />
         <div class="bulk-bar">
           <label class="bulk-label">
             <span>Action:</span>

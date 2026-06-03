@@ -16,5 +16,6 @@
     "target": "es2022",
     "lib": ["es2022", "dom", "dom.iterable"],
     "types": ["vitest/globals", "./worker-configuration.d.ts"]
-  }
+  },
+  "exclude": [".svelte-kit/output/**", ".svelte-kit/cloudflare/**", ".svelte-kit/cloudflare-tmp/**"]
 }

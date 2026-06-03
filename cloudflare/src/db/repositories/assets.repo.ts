@@ -84,6 +84,27 @@ export async function getAssetForBookmark(
   return rows[0] ?? null;
 }
 
+export async function findPendingAsset(
+  d1: D1Database,
+  bookmarkId: number,
+  assetType: AssetType
+): Promise<AssetRow | null> {
+  const db = getDb(d1);
+  const rows = await db
+    .select()
+    .from(bookmarkAssets)
+    .where(
+      and(
+        eq(bookmarkAssets.bookmarkId, bookmarkId),
+        eq(bookmarkAssets.assetType, assetType),
+        eq(bookmarkAssets.status, 'pending')
+      )
+    )
+    .orderBy(desc(bookmarkAssets.dateCreated))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export type AssetWithBookmark = AssetRow & {
   bookmarkOwnerId: number;
   bookmarkShared: boolean;
@@ -112,7 +133,14 @@ export async function getAssetById(
 export async function completeAsset(
   d1: D1Database,
   assetId: number,
-  updates: { r2Key: string; fileSize: number; gzip?: boolean; status?: AssetStatus }
+  updates: {
+    r2Key: string;
+    fileSize: number;
+    gzip?: boolean;
+    status?: AssetStatus;
+    contentType?: string;
+    displayName?: string;
+  }
 ): Promise<void> {
   const db = getDb(d1);
   await db
@@ -121,7 +149,9 @@ export async function completeAsset(
       r2Key: updates.r2Key,
       fileSize: updates.fileSize,
       status: updates.status ?? 'complete',
-      gzip: updates.gzip ?? false
+      gzip: updates.gzip ?? false,
+      ...(updates.contentType !== undefined ? { contentType: updates.contentType } : {}),
+      ...(updates.displayName !== undefined ? { displayName: updates.displayName } : {})
     })
     .where(eq(bookmarkAssets.id, assetId));
 }

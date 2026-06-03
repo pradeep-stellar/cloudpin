@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CsrfInput from '$lib/components/CsrfInput.svelte';
   import type { PageData } from './$types';
   let { data }: { data: PageData } = $props();
 </script>
@@ -29,6 +30,7 @@
           {#if b.excluded_tags}exclude: <code>{b.excluded_tags}</code>{/if}
         </span>
         <form method="POST" action="?/delete" class="del">
+          <CsrfInput token={data.csrfToken} />
           <input type="hidden" name="id" value={b.id} />
           <button
             class="btn"

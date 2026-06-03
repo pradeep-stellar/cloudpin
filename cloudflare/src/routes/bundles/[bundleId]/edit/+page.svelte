@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import CsrfInput from '$lib/components/CsrfInput.svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -16,6 +17,7 @@
 <div class="actions">
   <a class="btn" href={`/bookmarks?bundle=${b.id}`}>Preview</a>
   <form method="POST" action="?/delete" use:enhance class="inline">
+    <CsrfInput token={data.csrfToken} />
     <button
       class="btn danger"
       type="submit"
@@ -29,6 +31,7 @@
 </div>
 
 <form method="POST" action="?/update" use:enhance>
+  <CsrfInput token={data.csrfToken} />
   <label>
     <span>Name</span>
     <input type="text" name="name" required value={b.name} />

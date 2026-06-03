@@ -2,6 +2,7 @@ import { fail, redirect, type Actions, type ServerLoad } from '@sveltejs/kit';
 import { createBookmark } from '$db/repositories/bookmarks.repo';
 import { BookmarkCreate } from '$validation/bookmark.schemas';
 import { splitTags } from '$domain/tags';
+import { requireFormCsrf } from '$lib/server/auth/form-action';
 
 export const load: ServerLoad = async ({ locals }) => {
   if (locals.auth.state.kind === 'unauthenticated') {
@@ -15,6 +16,8 @@ export const actions: Actions = {
     if (locals.auth.state.kind === 'unauthenticated') {
       return fail(401, { error: 'unauthenticated', values: null });
     }
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const data = await request.formData();
     const tagsRaw = String(data.get('tag_names') ?? '');

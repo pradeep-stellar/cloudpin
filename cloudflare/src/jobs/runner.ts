@@ -10,7 +10,13 @@ import {
   type BrowserRun,
   type SnapshotFormat
 } from './handlers/snapshot';
-import { completeAsset, createAsset, failAsset } from '../db/repositories/assets.repo';
+import {
+  completeAsset,
+  createAsset,
+  failAsset,
+  findPendingAsset,
+  type AssetType
+} from '../db/repositories/assets.repo';
 import { getBookmarkById, updateBookmark } from '../db/repositories/bookmarks.repo';
 import { r2Keys } from '../storage/asset-keys';
 import { putObject } from '../storage/r2';
@@ -71,6 +77,9 @@ async function runFavicon(env: QueueEnv, m: JobMessage): Promise<{ ok: boolean; 
   if (!m.bookmarkId) return { ok: false, reason: 'no_bookmark' };
   const b = await getBookmarkById(env.DB, m.userId, m.bookmarkId);
   if (!b) return { ok: false, reason: 'bookmark_not_found' };
+  if (await hasPendingAsset(env.DB, m.bookmarkId, 'favicon')) {
+    return { ok: true, reason: 'pending_asset_exists' };
+  }
   const assetId = await createAsset(env.DB, {
     bookmarkId: m.bookmarkId,
     assetType: 'favicon',
@@ -116,6 +125,9 @@ async function runPreview(env: QueueEnv, m: JobMessage): Promise<{ ok: boolean; 
   if (!m.bookmarkId) return { ok: false, reason: 'no_bookmark' };
   const b = await getBookmarkById(env.DB, m.userId, m.bookmarkId);
   if (!b) return { ok: false, reason: 'bookmark_not_found' };
+  if (await hasPendingAsset(env.DB, m.bookmarkId, 'preview')) {
+    return { ok: true, reason: 'pending_asset_exists' };
+  }
   const assetId = await createAsset(env.DB, {
     bookmarkId: m.bookmarkId,
     assetType: 'preview',
@@ -168,30 +180,50 @@ async function runSnapshot(
   if (!m.bookmarkId) return { ok: false, reason: 'no_bookmark' };
   const b = await getBookmarkById(env.DB, m.userId, m.bookmarkId);
   if (!b) return { ok: false, reason: 'bookmark_not_found' };
+  if (await hasPendingAsset(env.DB, m.bookmarkId, 'snapshot')) {
+    return { ok: true, reason: 'pending_asset_exists' };
+  }
   const format: SnapshotFormat = b.url.toLowerCase().endsWith('.pdf') ? 'pdf' : 'html';
-  const result =
-    format === 'pdf' ? await capturePdf(b.url, env.BROWSER) : await captureHtml(b.url, env.BROWSER);
-  if (!result) return { ok: false, reason: 'snapshot_failed' };
-  const gz = await gzipBuffer(result.body);
-  const key = r2Keys.snapshot(m.userId, m.bookmarkId, 0, format);
   const assetId = await createAsset(env.DB, {
     bookmarkId: m.bookmarkId,
     assetType: 'snapshot',
-    contentType: result.contentType,
-    displayName: result.filename,
+    contentType: format === 'pdf' ? 'application/pdf' : 'text/html; charset=utf-8',
+    displayName: `${format}-snapshot`,
     status: 'pending',
     gzip: true
   });
+  const result =
+    format === 'pdf' ? await capturePdf(b.url, env.BROWSER) : await captureHtml(b.url, env.BROWSER);
+  if (!result) {
+    await failAsset(env.DB, assetId);
+    return { ok: false, reason: 'snapshot_failed' };
+  }
+  const gz = await gzipBuffer(result.body);
+  const key = r2Keys.snapshot(m.userId, m.bookmarkId, assetId, format);
   const put = await putObject(env.ASSETS_BUCKET, key, gz.body, {
     contentType: 'application/gzip',
     cacheControl: 'public, max-age=31536000',
     metadata: { originalContentType: result.contentType, format }
   });
-  await completeAsset(env.DB, assetId, { r2Key: put.key, fileSize: put.size, gzip: true });
+  await completeAsset(env.DB, assetId, {
+    r2Key: put.key,
+    fileSize: put.size,
+    gzip: true,
+    contentType: result.contentType,
+    displayName: result.filename
+  });
   await updateBookmark(env.DB, {
     ownerId: m.userId,
     id: m.bookmarkId,
     patch: { latestSnapshotAssetId: assetId }
   });
   return { ok: true };
+}
+
+async function hasPendingAsset(
+  d1: D1Database,
+  bookmarkId: number,
+  assetType: AssetType
+): Promise<boolean> {
+  return (await findPendingAsset(d1, bookmarkId, assetType)) !== null;
 }

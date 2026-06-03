@@ -1,5 +1,6 @@
 <script lang="ts">
   import BookmarkCard from '$lib/components/BookmarkCard.svelte';
+  import CsrfInput from '$lib/components/CsrfInput.svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -19,6 +20,7 @@
   <div class="empty"><p>No shared bookmarks yet.</p></div>
 {:else}
   <form method="POST" action="?/bulkAction" class="bulk-form">
+    <CsrfInput token={data.csrfToken} />
     <div class="bulk-bar">
       <label class="bulk-label">
         <span>Action:</span>

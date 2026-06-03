@@ -17,7 +17,7 @@ interface __BaseEnv_Env {
 }
 declare namespace Cloudflare {
 	interface GlobalProps {
-		mainModule: typeof import("./.svelte-kit/cloudflare/_worker");
+		mainModule: unknown;
 	}
 	interface PreviewEnv {
 		ASSETS_BUCKET: R2Bucket;

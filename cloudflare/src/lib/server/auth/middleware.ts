@@ -4,7 +4,7 @@ import { apiTokens, users } from '$db/schema';
 import { extractBearerToken, validateTokenShape, hashApiToken, safeEqualHash } from './api-token';
 import { AccessJwtValidator, isAccessJwtError } from './access-jwt';
 import { SESSION_COOKIE_NAME, verifySessionCookie } from './session';
-import { CSRF_HEADER, CSRF_FORM_FIELD, verifyCsrfToken } from './csrf';
+import { buildCsrfToken, CSRF_HEADER, CSRF_FORM_FIELD, verifyCsrfToken } from './csrf';
 import { upsertUserFromAccess } from './user-upsert';
 import type { AccessIdentity, AuthState, SessionUser } from './types';
 
@@ -29,6 +29,10 @@ export type AuthResolveResult = {
   requestId: string;
   origin: string | null;
   isMutation: boolean;
+  // Issued at request time when the session is a browser session and
+  // APP_SECRET is configured. Forms drop this into a hidden _csrf field
+  // and checkCsrf verifies it. API token callers never see the field.
+  csrfToken?: string;
 };
 
 const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -71,6 +75,25 @@ export function defaultDevIdentity(): AccessIdentity {
   };
 }
 
+// Issue a CSRF token bound to the browser session. The dayBucket is
+// the same one checkCsrf will compute on the way back in, so the
+// token is invalidated once a day rolls over — short-lived enough
+// that a stolen form submission is useless by the next day, and
+// long-lived enough that an open browser tab can keep editing
+// bookmarks for a working day without the form suddenly 403-ing.
+async function issueCsrfToken(
+  appSecret: string,
+  userId: number,
+  sessionId: string
+): Promise<string> {
+  return buildCsrfToken(appSecret, {
+    userId,
+    sessionId,
+    dayBucket: Math.floor(Date.now() / 1000 / 86400),
+    nonce: 'ui'
+  });
+}
+
 export async function resolveAuth(input: AuthResolveInput): Promise<AuthResolveResult> {
   const { request, env } = input;
   const headers = request.headers;
@@ -104,11 +127,15 @@ export async function resolveAuth(input: AuthResolveInput): Promise<AuthResolveR
       const upsert = await upsertUserFromAccess(env.DB, identity, env.ADMIN_EMAILS);
       const user = await loadSessionUserById(env.DB, upsert.userId);
       if (user) {
+        const csrfToken = env.APP_SECRET
+          ? await issueCsrfToken(env.APP_SECRET, user.id, 'access')
+          : undefined;
         return {
           state: { kind: 'browser_session', user, sessionId: 'access' },
           requestId,
           origin,
-          isMutation
+          isMutation,
+          csrfToken
         };
       }
     } catch (err) {
@@ -123,11 +150,13 @@ export async function resolveAuth(input: AuthResolveInput): Promise<AuthResolveR
       if (payload) {
         const user = await loadSessionUserById(env.DB, payload.userId);
         if (user) {
+          const csrfToken = await issueCsrfToken(env.APP_SECRET, user.id, payload.sessionId);
           return {
             state: { kind: 'browser_session', user, sessionId: payload.sessionId },
             requestId,
             origin,
-            isMutation
+            isMutation,
+            csrfToken
           };
         }
       }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CsrfInput from '$lib/components/CsrfInput.svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -39,6 +40,7 @@
       <details>
         <summary>Rename</summary>
         <form method="POST" action="?/rename">
+          <CsrfInput token={data.csrfToken} />
           <input type="hidden" name="id" value={data.tagRow?.id ?? ''} />
           <input type="text" name="name" placeholder="New name" bind:value={renameValue} required />
           <button class="btn" type="submit">Rename</button>
@@ -48,6 +50,7 @@
       <details>
         <summary>Merge into…</summary>
         <form method="POST" action="?/merge">
+          <CsrfInput token={data.csrfToken} />
           <input type="hidden" name="sourceId" value={data.tagRow?.id ?? ''} />
           <input
             type="text"
@@ -63,6 +66,7 @@
       <details>
         <summary>Delete</summary>
         <form method="POST" action="?/delete">
+          <CsrfInput token={data.csrfToken} />
           <input type="hidden" name="id" value={data.tagRow?.id ?? ''} />
           <button class="btn danger" type="submit">Delete tag</button>
         </form>

@@ -9,6 +9,7 @@ import {
 } from '$db/repositories/bookmarks.repo';
 import { getDb } from '$db/client';
 import { bookmarkTags, tags } from '$db/schema';
+import { requireFormCsrf } from '$lib/server/auth/form-action';
 
 const PAGE_SIZE = 30;
 
@@ -65,6 +66,8 @@ function readIds(formData: FormData): number[] {
 export const actions: Actions = {
   bulkAction: async ({ request, locals, platform }) => {
     if (locals.auth.state.kind === 'unauthenticated') return fail(401);
+    const csrf = await requireFormCsrf({ request, locals, platform });
+    if (csrf) return csrf;
     const user = locals.auth.state.user;
     const db = platform!.env.DB as D1Database;
     const data = await request.formData();
