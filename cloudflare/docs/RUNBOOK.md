@@ -1,6 +1,95 @@
 # Production runbook
 
-This runbook covers day-2 operations for a cloudpin deployment on Cloudflare.
+This runbook covers day-0 setup, day-1 deploy, and day-2 operations
+for a cloudpin deployment on Cloudflare.
+
+## First-time setup
+
+Before the first deploy, three Cloudflare resources need to exist per
+environment: a D1 database, an R2 bucket, and a queue with a dead
+letter queue. Browser Rendering and Workflows are bindings and need
+no pre-creation. Access is configured in the dashboard.
+
+The `tools/bootstrap.sh` script creates all of these idempotently
+(returns the existing ID if the resource already exists) and prints
+the values to paste into `wrangler.jsonc`.
+
+### Prereqs
+
+- A Cloudflare account with Workers, D1, R2, Queues, and Browser
+  Rendering enabled.
+- `npx wrangler` installed and able to reach your account (set
+  `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the
+  environment, or run `wrangler login`).
+- `jq` installed (`brew install jq` / `apt install jq`).
+- Node 20+.
+
+### Steps
+
+1. From the `cloudflare/` directory, run the bootstrap script for each
+   environment you want to deploy. Use `--all` to do all three in one
+   pass:
+
+   ```bash
+   tools/bootstrap.sh --all
+   # or one at a time:
+   tools/bootstrap.sh production
+   tools/bootstrap.sh preview
+   tools/bootstrap.sh local
+   ```
+
+   The script prints `<env>:<d1_id>` on the last line of each
+   environment block. Capture that.
+
+2. Paste the D1 `database_id` values into `cloudflare/wrangler.jsonc`
+   under each env. R2 buckets and queues use the names from the
+   script, so no further changes are required for those.
+
+3. Create the production Access application in the Cloudflare
+   dashboard (**Access → Applications → Add an application →
+   Self-hosted**). Configure the policy to require your team email
+   domain. Note the audience tag and team domain.
+
+4. Update the Access env vars in `cloudflare/wrangler.jsonc`:
+
+   ```jsonc
+   "env": {
+     "production": {
+       "vars": {
+         "ACCESS_TEAM_DOMAIN": "<your-team>.cloudflareaccess.com",
+         "ACCESS_AUD":         "<audience tag from the Access app>",
+         "ADMIN_EMAILS":       "owner@example.com"
+       }
+     }
+   }
+   ```
+
+5. Set the production secrets interactively. The values are never
+   stored in the repo:
+
+   ```bash
+   npx wrangler secret put APP_SECRET         --env production
+   npx wrangler secret put API_TOKEN_PEPPER   --env production
+   npx wrangler secret put WAYBACK_ACCESS_KEY --env production  # optional
+   ```
+
+6. Apply migrations and deploy:
+   ```bash
+   npx wrangler d1 migrations apply DB --remote --env production
+   npx wrangler deploy --env production
+   ```
+
+The script is safe to re-run: existing resources are detected and
+their IDs are returned without modification. It never deletes
+anything.
+
+### Local development
+
+`tools/bootstrap.sh local` (or `--all`) creates the D1, R2, and
+queue resources that `wrangler dev` will use. The `database_id` for
+the local env is only required for `wrangler dev` to find the right
+local D1; the `--local` flag also creates a fresh D1 on disk under
+`.wrangler/state/` if no remote ID is set.
 
 ## Deploy
 
