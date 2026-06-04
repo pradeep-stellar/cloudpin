@@ -111,7 +111,7 @@ npm run db:migrate:remote:preview   # or :prod
 npm run deploy                      # or: make deploy
 ```
 
-Workflow definitions are in **`cloudflare/.github/workflows/`** (`ci.yml`, `deploy.yml`). GitHub only runs workflows from the **repo root** `.github/workflows/` — copy or move them before relying on push-to-deploy.
+GitHub Actions: [`.github/workflows/`](../.github/workflows/) at the repo root (`ci.yml` on pull requests, `deploy.yml` on push to `main`).
 
 ## Domain modules (`src/domain/`)
 

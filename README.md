@@ -22,7 +22,7 @@ A Cloudflare-native bookmark manager. A from-scratch reimplementation of [Linkdi
 
 **Quality gates (local):** `cd cloudflare && make ci` — typecheck, lint, unit tests, build. E2e: `make test-e2e` (19 specs).
 
-**Deploy readiness:** One-time Cloudflare setup, real `wrangler.jsonc` IDs, Access, and secrets are documented in [`DEPLOYMENT.md`](DEPLOYMENT.md). GitHub Actions workflows live under `cloudflare/.github/workflows/` today; copy or symlink them to the **repository root** `.github/workflows/` before push-to-deploy on `main` will run in GitHub.
+**Deploy readiness:** One-time Cloudflare setup, real `wrangler.jsonc` IDs, Access, and secrets are documented in [`DEPLOYMENT.md`](DEPLOYMENT.md). GitHub Actions run from [`.github/workflows/`](.github/workflows/) (`ci.yml` on PRs, `deploy.yml` on push to `main`).
 
 ### What works today
 
@@ -39,7 +39,7 @@ A Cloudflare-native bookmark manager. A from-scratch reimplementation of [Linkdi
 - `/api/bundles/*` REST routes
 - Admin-lite UI (rely on D1 dashboard for raw SQL for now)
 - Async / resumable Netscape import (large files)
-- GitHub Actions at repo root; replace placeholder D1 IDs and Access vars in `wrangler.jsonc`
+- Replace placeholder D1 IDs and Access vars in `wrangler.jsonc`; set GitHub secrets for deploy
 - Optional hardening from ongoing review: API token lookup by prefix, stale pending asset cleanup
 
 ## Where to look

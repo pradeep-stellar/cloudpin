@@ -187,9 +187,9 @@ The Cloudflare Access middleware is bypassed in dev by default; see `src/auth/ac
 
 ## 6. CI/CD via GitHub Actions
 
-The repo includes two workflows under `cloudflare/.github/workflows/`:
+The repo includes two workflows under [`.github/workflows/`](.github/workflows/) (repo root; all steps use `working-directory: cloudflare`):
 
-- `ci.yml` — runs on PRs and pushes to `main`. Steps: `npm ci` → `wrangler types` → `typecheck` → `lint` → `test` → `build`. No secrets required.
+- `ci.yml` — runs on pull requests. Steps: `npm ci` → `wrangler types` → `typecheck` → `lint` → `test` → `build`. No secrets required.
 - `deploy.yml` — runs on push to `main`. Same quality gates, then `wrangler d1 migrations apply DB --remote --env production` and `wrangler deploy --env production`.
 
 ### 6.1 Required GitHub repository secrets
