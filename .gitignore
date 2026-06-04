@@ -5,7 +5,7 @@
 .beads-credential-key
 
 # Personal bookmark import data (not part of the cloudpin app)
-pinboard_export.*.json
+pinboard_export.*.*
 x_bookmarks_*.csv
 
 # Cloudflare
