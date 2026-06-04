@@ -28,4 +28,5 @@ override.tf.json
 .vscode/
 .idea/
 .DS_Store
-.README.md.swp
+*.swp
+*~
