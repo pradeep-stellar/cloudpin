@@ -1,159 +1,145 @@
-# cloudpin
+# cloudpin (application)
 
-Cloudflare-native bookmark manager. Reimplementation of [Linkding](https://linkding.link/) as a single TypeScript app on Cloudflare Workers, D1, R2, Queues, and Workflows.
-
-This is **Phase 0/1** of the plan described in `../AGENTS.md`. The full architecture and feature roadmap live in that document; this README only covers the local development workflow for what is currently in the tree.
+Cloudflare-native bookmark manager under this directory. Architecture and the full phase plan live in [`../AGENTS.md`](../AGENTS.md). Deploy steps: [`../DEPLOYMENT.md`](../DEPLOYMENT.md). Operations: [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
 
 ## Status
 
-| Phase | Scope                                                                        | Status      |
-| ----- | ---------------------------------------------------------------------------- | ----------- |
-| 0     | Scaffold (SvelteKit + Hono + Workers) and Wrangler config                    | done        |
-| 1     | Core domain (URL normalize, tag parse, search parse, auto-tag) and D1 schema | done        |
-| 2+    | Auth, REST API, UI, jobs, assets, snapshots, migration tool                  | not started |
+Phases **0–2** and most of **4–8** are implemented in this tree. Use the table below for detail; the repo root [`README.md`](../README.md) has the same summary plus deploy notes.
+
+| Phase | Scope | Status |
+| ----- | ----- | ------ |
+| 0 | Scaffold (SvelteKit + Hono + Workers) and Wrangler config | **done** |
+| 1 | Core domain and D1 schema (migrations `0001`–`0003`, FTS5) | **done** |
+| 2 | Access JWT, CSRF, API tokens, session upsert | **done** |
+| 3 | REST API | **partial** — bookmarks, tags, assets, profile; **no** `/api/bundles` yet |
+| 4 | Bookmark UI (list, archived, shared, CRUD, details) | **done** |
+| 5 | Tags, bundles, bulk actions | **done** |
+| 6 | Settings, feeds, PWA, import/export | **partial** — `POST /settings/import` is synchronous |
+| 7 | R2 + queue consumer (favicon, preview, metadata) | **done** |
+| 8 | Wayback, SingleFile POST, snapshot queue + Browser binding | **partial** |
+| 9–10 | `tools/migrate-linkding.ts`, e2e, runbooks | **partial** |
+
+**Tests:** `npm test` — 324 unit tests across domain, auth, API, jobs, and repos. `npm run test:e2e` — 19 Playwright specs (smoke, bookmarks, search, bulk, import, API token, public assets, bundle reorder).
 
 ## Stack
 
-- SvelteKit on Cloudflare Workers via `@sveltejs/adapter-cloudflare`
-- Hono mounted at `/api/*` for the REST surface
-- Cloudflare D1 for the database, accessed through Drizzle ORM
-- Cloudflare R2 for blob storage (favicons, previews, assets, snapshots)
-- Cloudflare Queues + Workflows for background jobs
-- Zod for validation, Vitest for tests, Prettier + ESLint for format/lint
-- TypeScript strict mode with `noUncheckedIndexedAccess`
+- SvelteKit on Cloudflare Workers (`@sveltejs/adapter-cloudflare`)
+- Hono at `/api/*` (`src/lib/server/hono.ts`, route modules under `src/server/api/`)
+- D1 + Drizzle ORM (`src/db/`)
+- R2 for favicons, previews, assets, snapshots (`src/storage/`)
+- **Queues** for background jobs (`src/jobs/`) — Workflows bindings were removed; see `docs/RUNBOOK.md`
+- Zod, Vitest, Playwright, Prettier, ESLint, TypeScript strict + `noUncheckedIndexedAccess`
 
 ## Directory layout
 
 ```
 cloudflare/
-  migrations/            SQL migrations for D1
+  migrations/            D1 SQL migrations
+  docs/                  RUNBOOK, SECURITY, API, SHARING, CUTOVER, SEARCH-PERF
   src/
-    app.html
-    hooks.server.ts
-    routes/              SvelteKit routes (UI + /api/[...path] mount)
-    lib/server/          Server-only modules (Hono app lives here)
-    domain/              Pure, framework-free domain logic (URL, tags, search, auto-tag)
-    db/                  Drizzle schema and D1 client
-    auth/                Cloudflare Access, API tokens, CSRF (Phase 2)
-    jobs/                Queue handlers (Phase 7+)
-    storage/             R2 helpers (Phase 7+)
-    server/api/          Hono API route modules (Phase 3+)
-    validation/          Zod schemas (Phase 3+)
-
+    routes/              SvelteKit pages and server routes
+    lib/server/          Hono app, auth (Access, CSRF, API tokens)
+    lib/components/      BookmarkCard, TagCloud, CsrfInput
+    domain/              Pure logic: URL, tags, search parser/SQL, netscape, bundles
+    db/                  Drizzle schema, repositories
+    server/api/          Hono route modules
+    jobs/                Queue consumer and handlers
+    storage/             R2 keys and CSP helpers
+    validation/          Zod schemas
   test/
-    unit/                Vitest unit tests (domain logic)
-    integration/         Cloudflare-runtime integration tests (later)
-    e2e/                 Playwright e2e tests (later)
-    fixtures/            Shared test fixtures
-  tools/                 One-off CLI tools (migration, seed)
-  wrangler.jsonc         Checked-in Wrangler config (local, preview, production)
-  worker-configuration.d.ts   Generated by `wrangler types`
-  svelte.config.js
-  vite.config.ts
-  tsconfig.json
-  eslint.config.js
-  .prettierrc
+    unit/
+    integration/
+    e2e/
+    fixtures/
+  tools/                 migrate-linkding, bootstrap, bench-search
+  wrangler.jsonc
+  worker-configuration.d.ts   Generated by `npm run cf:typegen`
 ```
 
 ## Prerequisites
 
-- Node.js 20 or newer
-- `npm` 10 or newer
-- A Cloudflare account (only required for remote `dev`, `migrate:remote:*`, and `deploy`)
+- Node.js 20+
+- npm 10+
+- Cloudflare account (for remote dev, remote migrations, deploy)
 
-## Install
+## Install and setup
 
 ```bash
 cd cloudflare
-npm install
-```
-
-## First-time setup
-
-Generate the Worker bindings TypeScript file (committed in the repo after first run, regenerated whenever `wrangler.jsonc` changes):
-
-```bash
-npm run cf:typegen
+make setup    # or: npm install && npm run cf:typegen && npm run db:migrate:local
 ```
 
 ## Local development
 
-Start the Worker on `http://localhost:8787`:
-
 ```bash
-npm run dev
+make dev      # http://localhost:8787 (override: make dev PORT=9000)
 ```
 
-The dev server uses Miniflare with the bindings declared in `wrangler.jsonc`. D1 is a local SQLite file under `.wrangler/state/v3/d1`. Apply migrations to the local DB:
+Miniflare provides local D1 (under `.wrangler/state/v3/d1`), R2, and queues per `wrangler.jsonc`.
+
+Re-apply migrations after pulling schema changes:
 
 ```bash
 npm run db:migrate:local
 ```
 
+### Configuration and variables
+
+| Kind | Where |
+| ---- | ----- |
+| Public vars (`PUBLIC_BASE_URL`, `ACCESS_*`, `ADMIN_EMAILS`, `FAVICON_PROVIDER`, …) | `wrangler.jsonc` → top-level `vars`, `env.preview.vars`, `env.production.vars` |
+| Secrets (`APP_SECRET`, `API_TOKEN_PEPPER`, optional `WAYBACK_ACCESS_KEY`) | `wrangler secret put` — never committed |
+| Local-only | `.dev.vars` (e.g. `CLOUDPIN_E2E_BYPASS_AUTH=1`) |
+| CI deploy | GitHub secrets `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` |
+
+Types: `worker-configuration.d.ts` (generated), `src/app.d.ts`, `AuthEnv` in `src/lib/server/auth/middleware.ts`.
+
 ## Quality checks
 
 ```bash
-npm run typecheck    # svelte-check
-npm run lint         # prettier --check + eslint
-npm test             # vitest (node environment, pure domain logic)
+make ci              # typecheck + lint + test + build
+npm run test:e2e     # Playwright; auto-starts wrangler dev
 ```
 
-End-to-end tests use Playwright against a local `wrangler dev` server with the
-`CLOUDPIN_E2E_BYPASS_AUTH=1` opt-in auth bypass. The bypass value is set via
-`.dev.vars` (which `wrangler dev` injects as the `env.CLOUDPIN_E2E_BYPASS_AUTH`
-worker binding) and read in `src/hooks.server.ts`. The smoke spec at
-`test/e2e/smoke.spec.ts` is the canonical readiness check. The first run
-downloads Chromium; subsequent runs reuse the local D1 state in
-`.wrangler/state/` and the dev server is auto-started by the `webServer` block
-in `playwright.config.ts`.
-
-```bash
-npm run test:e2e:install   # one-time: install Chromium with system deps
-npm run test:e2e           # run the suite; auto-boots wrangler dev
-```
-
-For a clean run, delete `.wrangler/state/` first. The bypass is gated on the
-explicit `CLOUDPIN_E2E_BYPASS_AUTH=1` opt-in so it never engages in normal dev
-or production.
+E2e uses `CLOUDPIN_E2E_BYPASS_AUTH=1` in `.dev.vars` (read in `src/hooks.server.ts`). First run: `npm run test:e2e:install`. For a clean slate, remove `.wrangler/state/` before e2e.
 
 ## Build and deploy
 
-Build the Worker bundle:
-
 ```bash
 npm run build
+npm run db:migrate:remote:preview   # or :prod
+npm run deploy                      # or: make deploy
 ```
 
-Apply migrations to the remote D1 (preview or production) and deploy:
+Workflow definitions are in **`cloudflare/.github/workflows/`** (`ci.yml`, `deploy.yml`). GitHub only runs workflows from the **repo root** `.github/workflows/` — copy or move them before relying on push-to-deploy.
 
-```bash
-npm run db:migrate:remote:preview
-npm run db:migrate:remote:prod
-npm run deploy
-```
+## Domain modules (`src/domain/`)
 
-GitHub Actions handles CI on PRs and deploy on `main` once secrets (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`) are configured. See `.github/workflows/`.
+Framework-free, heavily unit-tested:
 
-## Domain modules
+| Module | Role |
+| ------ | ---- |
+| `url-normalize.ts` | Bookmark URL canonicalization |
+| `tags.ts` | Tag normalize, split, search fragments |
+| `search-parser.ts` | Linkding search grammar → AST |
+| `search-sql.ts` | AST → parameterized SQL (FTS5 when enabled) |
+| `auto-tagging.ts` | User rules on url / domain / title |
+| `netscape.ts` / `netscape-import.ts` | Export / import HTML |
+| `bundles.ts` | Bundle filter → search query |
+| `asset-access.ts` / `public-asset-access.ts` | Authorization for asset routes |
 
-The pure domain code under `src/domain/` is the part that is most heavily tested and most likely to change. Today it includes:
-
-- `url-normalize.ts` — bookmark URL canonicalization (tracking-param strip, default port drop, host lowercase, root-slash drop, query sort, idempotent). See `test/unit/url-normalize.test.ts`.
-- `tags.ts` — tag name normalization, splitting, search-fragment building, comparison. See `test/unit/tags.test.ts`.
-- `search-parser.ts` — Linkding search grammar (terms, `#tag`, `!unread`, `!untagged`, AND/OR/NOT, parens, quoted phrases) into a typed AST. See `test/unit/search-parser.test.ts`.
-- `auto-tagging.ts` — apply user-defined auto-tagging rules (substring or `/regex/` on `url`, `domain`, or `title`) and return a deduped list of tag names. See `test/unit/auto-tagging.test.ts`.
-
-These modules import nothing from Cloudflare or SvelteKit. They are intentionally easy to extend and easy to test.
+Markdown rendering for notes lives in `src/lib/markdown.ts` (used by UI, not under `domain/`).
 
 ## wrangler.jsonc conventions
 
-- `name: "cloudpin"` for production, `-preview` for the preview env, and the default for local.
-- D1, R2, and Queue names carry the environment suffix (`-preview`, `-prod`) so the same code can deploy against either without collisions.
-- Bindings are `DB`, `ASSETS_BUCKET`, `JOBS`, `BROWSER`, plus the Workflow bindings `IMPORT_WORKFLOW` and `SNAPSHOT_WORKFLOW`.
-- `BROWSER` uses the Workers browser binding and the modern `.quickAction()` RPC method (compatibility date `2026-03-24`+). Local dev needs `remote: true` (or `wrangler dev --remote`) because `.quickAction()` is not yet supported in local mode. See `src/jobs/handlers/snapshot.ts` for the call site and the response shape parsing.
-- Vars in `env.production` (and `env.preview`) include `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `ADMIN_EMAILS`, `PUBLIC_BASE_URL`. Replace `replace-me` placeholders with real values before going live.
-- Secrets (`APP_SECRET`, `API_TOKEN_PEPPER`, `WAYBACK_ACCESS_KEY`, etc.) live in `wrangler secret put` or GitHub Actions secrets; they are never committed.
+- Worker name: `cloudpin` (production), `cloudpin-preview`, local default.
+- Bindings: `DB`, `ASSETS_BUCKET`, `JOBS`, `BROWSER` (remote in preview/production for `.quickAction()`).
+- Resource names use `-local`, `-preview`, or `-prod` suffixes per environment.
+- Replace `*-placeholder-d1-id` and `replace-me` Access values before a real deploy.
 
 ## See also
 
-- `../AGENTS.md` — full reimplementation plan, feature parity matrix, security checklist, and operational runbooks.
+- [`../AGENTS.md`](../AGENTS.md) — plan, parity matrix, phases
+- [`../DEPLOYMENT.md`](../DEPLOYMENT.md) — first-time Cloudflare + GitHub setup
+- [`docs/API.md`](docs/API.md) — REST surface
+- [`docs/SECURITY.md`](docs/SECURITY.md) — auth and asset rules
