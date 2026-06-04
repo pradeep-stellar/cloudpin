@@ -1,41 +1,62 @@
 #!/usr/bin/env bash
-# cloudpin bootstrap — idempotently create the Cloudflare resources
-# that cloudpin needs and print the IDs to paste into wrangler.jsonc.
+# cloudpin bootstrap — provision remote Cloudflare resources for an environment.
+#
+# Default: Terraform (terraform/environments/<env>) + sync wrangler.jsonc.
+# Fallback: Wrangler CLI only with --wrangler-only.
 #
 # Usage:
-#   tools/bootstrap.sh                # bootstrap production (default)
-#   tools/bootstrap.sh production     # same as above
-#   tools/bootstrap.sh preview        # bootstrap preview
-#   tools/bootstrap.sh local          # bootstrap local
-#   tools/bootstrap.sh --all          # bootstrap all three
+#   tools/bootstrap.sh                    # production (Terraform)
+#   tools/bootstrap.sh preview
+#   tools/bootstrap.sh production
+#   tools/bootstrap.sh --wrangler-only production
+#   tools/bootstrap.sh --all              # preview + production (Terraform)
+#   tools/bootstrap.sh --wrangler-only --all
 #
 # Environment:
-#   CLOUDFLARE_API_TOKEN   required for create commands
-#   CLOUDFLARE_ACCOUNT_ID  required for create commands
-#
-# The script is idempotent: existing resources are detected and their
-# IDs are printed instead of being recreated. The script never deletes
-# anything, so it is safe to re-run.
-#
-# Output:
-#   At the end, the script prints a paste-ready block per environment
-#   that lists the database_id values to put in wrangler.jsonc. R2
-#   buckets and queues do not need an ID in wrangler.jsonc; the name
-#   is enough.
+#   CLOUDFLARE_API_TOKEN
+#   CLOUDFLARE_ACCOUNT_ID
 
 set -euo pipefail
 
-ENV="${1:-production}"
+USE_TERRAFORM=1
+ENV="production"
+ENVS=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --wrangler-only)
+      USE_TERRAFORM=0
+      shift
+      ;;
+    --all)
+      ENVS=(preview production)
+      shift
+      ;;
+    -h | --help)
+      sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    local | preview | production)
+      ENV="$1"
+      shift
+      ;;
+    *)
+      echo "error: unknown argument '$1'" >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [ "${#ENVS[@]}" -eq 0 ]; then
+  ENVS=("$ENV")
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLOUDFLARE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-
-# Use the cloudflare/ working directory so wrangler picks up the right
-# wrangler.jsonc and .dev.vars.
 cd "$CLOUDFLARE_DIR"
 
 WRANGLER=(npx --no-install wrangler)
 
-# require_command prints an error and exits if a binary is missing.
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "error: required command '$1' is not installed" >&2
@@ -43,16 +64,14 @@ require_command() {
   fi
 }
 
-require_command node
-require_command npx
-if ! command -v jq >/dev/null 2>&1; then
-  echo "error: required command 'jq' is not installed (brew install jq / apt install jq)" >&2
-  exit 1
-fi
+check_credentials() {
+  if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+    echo "warning: CLOUDFLARE_API_TOKEN and/or CLOUDFLARE_ACCOUNT_ID are not set" >&2
+  fi
+}
 
-# Resource name builders — mirror the names in wrangler.jsonc. The
-# shorthand argument to the script is "production" / "preview" / "local"
-# but the suffix in resource names is the abbreviated "prod".
+# --- Wrangler-only path (legacy) -------------------------------------------
+
 short_suffix() {
   case "$1" in
     production) printf 'prod' ;;
@@ -65,7 +84,6 @@ r2_name() { printf 'cloudpin-assets-%s' "$(short_suffix "$1")"; }
 queue_name() { printf 'cloudpin-jobs-%s' "$(short_suffix "$1")"; }
 dlq_name() { printf 'cloudpin-jobs-dlq-%s' "$(short_suffix "$1")"; }
 
-# Look up an existing D1 database by name. Echoes the UUID or nothing.
 find_d1_id() {
   local name="$1"
   "${WRANGLER[@]}" d1 list --json 2>/dev/null \
@@ -73,9 +91,6 @@ find_d1_id() {
     | head -n1
 }
 
-# ensure_d1 prints the ID on stdout (callers capture it) and
-# informational lines on stderr (so they don't end up in the
-# captured stdout and silently disappear from the user).
 ensure_d1() {
   local name="$1"
   local id
@@ -88,8 +103,6 @@ ensure_d1() {
   printf '  create   %s\n' "$name" >&2
   local output
   if ! output="$("${WRANGLER[@]}" d1 create "$name" 2>&1)"; then
-    # Race: another process created it between our list and create.
-    # Try to look it up one more time.
     if echo "$output" | grep -qi "already exists"; then
       id="$(find_d1_id "$name")"
       if [ -n "$id" ] && [ "$id" != "null" ]; then
@@ -101,17 +114,14 @@ ensure_d1() {
     printf 'error: failed to create D1 database %s:\n%s\n' "$name" "$output" >&2
     return 1
   fi
-  # The D1 create output includes a "database_id = ..." line; pull it
-  # from either that or the bare UUID pattern.
   id="$(printf '%s' "$output" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -n1)"
   if [ -z "$id" ]; then
-    printf 'error: created D1 %s but could not parse UUID from output:\n%s\n' "$name" "$output" >&2
+    printf 'error: created D1 %s but could not parse UUID\n' "$name" >&2
     return 1
   fi
   printf '%s\n' "$id"
 }
 
-# Check if an R2 bucket exists by name.
 r2_exists() {
   local name="$1"
   "${WRANGLER[@]}" r2 bucket list 2>/dev/null \
@@ -125,23 +135,9 @@ ensure_r2() {
     return 0
   fi
   printf '  create   %s\n' "$name" >&2
-  if ! "${WRANGLER[@]}" r2 bucket create "$name" >/dev/null 2>&1; then
-    if r2_exists "$name"; then
-      printf '  exists   %s\n' "$name" >&2
-      return 0
-    fi
-    printf 'error: failed to create R2 bucket %s\n' "$name" >&2
-    return 1
-  fi
+  "${WRANGLER[@]}" r2 bucket create "$name" >/dev/null
 }
 
-# Check if a queue exists by name. The wrangler queues list output is
-# a table with the format
-#   │ <id> │ <name padded to 30> │ ...
-# so the name sits in field 4 (the cell between two │ glyphs). We
-# look for the column-aligned name to avoid matching a name that
-# happens to be a prefix of another (e.g. cloudpin-jobs-prod vs
-# cloudpin-jobs-production).
 queue_exists() {
   local name="$1"
   "${WRANGLER[@]}" queues list 2>/dev/null \
@@ -155,130 +151,66 @@ ensure_queue() {
     return 0
   fi
   printf '  create   %s\n' "$name" >&2
-  if ! "${WRANGLER[@]}" queues create "$name" >/dev/null 2>&1; then
-    if queue_exists "$name"; then
-      printf '  exists   %s\n' "$name" >&2
-      return 0
-    fi
-    printf 'error: failed to create queue %s\n' "$name" >&2
-    return 1
-  fi
+  "${WRANGLER[@]}" queues create "$name" >/dev/null
 }
 
-# Bootstrap a single environment. Echoes "<env>:<d1_id>" on the last
-# line so callers can capture the ID programmatically.
-bootstrap_env() {
+bootstrap_wrangler_env() {
   local env="$1"
-  local d1 r2 q dlq d1_id
-
-  d1="$(d1_name "$env")"
-  r2="$(r2_name "$env")"
-  q="$(queue_name "$env")"
-  dlq="$(dlq_name "$env")"
-
-  printf '\n== %s ==\n' "$env"
-  printf -- '-- d1 --\n'
-  d1_id="$(ensure_d1 "$d1")"
-
-  printf -- '-- r2 --\n'
-  ensure_r2 "$r2"
-
-  printf -- '-- queues --\n'
-  ensure_queue "$q"
-  ensure_queue "$dlq"
-
-  printf '%s:%s\n' "$env" "$d1_id"
+  require_command jq
+  check_credentials
+  printf '\n== %s (wrangler-only) ==\n' "$env"
+  ensure_d1 "$(d1_name "$env")" >/dev/null
+  ensure_r2 "$(r2_name "$env")"
+  ensure_queue "$(queue_name "$env")"
+  ensure_queue "$(dlq_name "$env")"
+  printf '\nPaste the D1 database_id into wrangler.jsonc env.%s manually, or use Terraform.\n' "$env"
 }
 
-# Check the access credentials that wrangler needs. Print a warning if
-# they are not set; the script will still work for read-only lookups
-# but will fail to create new resources.
-check_credentials() {
-  if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
-    echo "warning: CLOUDFLARE_API_TOKEN and/or CLOUDFLARE_ACCOUNT_ID are not set"
-    echo "         existing resources can still be looked up, but creation will fail"
-  fi
+# --- Terraform path (default) ----------------------------------------------
+
+bootstrap_terraform_env() {
+  local env="$1"
+  check_credentials
+  "$SCRIPT_DIR/terraform-apply.sh" "$env" -auto-approve
 }
 
-print_summary() {
+print_next_steps() {
   cat <<'EOF'
 
-== wrangler.jsonc patch ==
+== Next steps ==
 
-The script created or located the production resources. The D1
-database_id is the only field that must be set in wrangler.jsonc; the
-R2 bucket and queue names are already correct. Replace the placeholder
-production database_id with the ID printed above. The preview env
-follows the same shape.
+1. wrangler types (if wrangler.jsonc changed)
+2. Set secrets (not in Terraform state by default):
 
-  "env": {
-    "production": {
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "cloudpin-prod",
-          "database_id": "<PASTE production d1 id here>",
-          "migrations_dir": "migrations"
-        }
-      ],
-      ...
-    }
-  }
+     npx wrangler secret put APP_SECRET --env production
+     npx wrangler secret put API_TOKEN_PEPPER --env production
 
-== secrets ==
+3. Deploy:
 
-After the D1 / R2 / queue IDs are in place, set the production secrets
-interactively (the values are not stored in the repo):
+     npm run build
+     npx wrangler d1 migrations apply DB --remote --env production
+     npx wrangler deploy --env production
 
-  npx wrangler secret put APP_SECRET         --env production
-  npx wrangler secret put API_TOKEN_PEPPER   --env production
-  npx wrangler secret put WAYBACK_ACCESS_KEY --env production  # optional
-
-== access ==
-
-The production Access application is created in the Cloudflare
-dashboard (Access → Applications → Add an application → Self-hosted).
-Set the audience tag and team domain in wrangler.jsonc env.production
-vars:
-
-  "ACCESS_TEAM_DOMAIN": "<your-team>.cloudflareaccess.com",
-  "ACCESS_AUD":         "<audience tag from the Access app>",
-  "ADMIN_EMAILS":       "owner@example.com"
-
-== first deploy ==
-
-After the above:
-
-  npm run typecheck
-  npm run lint
-  npm test
-  npm run build
-  npx wrangler d1 migrations apply DB --remote --env production
-  npx wrangler deploy --env production
+See ../terraform/README.md and ../DEPLOYMENT.md for Access, DNS, and CI.
 EOF
 }
 
 main() {
-  check_credentials
-  case "$ENV" in
-    --all)
-      bootstrap_env local
-      bootstrap_env preview
-      bootstrap_env production
-      ;;
-    local | preview | production)
-      bootstrap_env "$ENV"
-      ;;
-    -h | --help)
-      sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
-      exit 0
-      ;;
-    *)
-      echo "error: unknown environment '$ENV' (expected: local, preview, production, --all)" >&2
-      exit 2
-      ;;
-  esac
-  print_summary
+  for env in "${ENVS[@]}"; do
+    if [ "$env" = "local" ]; then
+      if [ "$USE_TERRAFORM" -eq 1 ]; then
+        echo "note: local uses Miniflare; skipping Terraform for local" >&2
+      fi
+      bootstrap_wrangler_env local
+      continue
+    fi
+    if [ "$USE_TERRAFORM" -eq 1 ]; then
+      bootstrap_terraform_env "$env"
+    else
+      bootstrap_wrangler_env "$env"
+    fi
+  done
+  print_next_steps
 }
 
 main

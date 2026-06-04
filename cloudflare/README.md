@@ -87,7 +87,8 @@ npm run db:migrate:local
 
 | Kind | Where |
 | ---- | ----- |
-| Public vars (`PUBLIC_BASE_URL`, `ACCESS_*`, `ADMIN_EMAILS`, `FAVICON_PROVIDER`, …) | `wrangler.jsonc` → top-level `vars`, `env.preview.vars`, `env.production.vars` |
+| Public vars (`PUBLIC_BASE_URL`, `ACCESS_*`, `ADMIN_EMAILS`, `FAVICON_PROVIDER`, …) | `terraform.tfvars` → `terraform apply` → `make sync-wrangler-production` patches `wrangler.jsonc` |
+| D1 `database_id` | Terraform output → `sync-wrangler-from-terraform.sh` (or manual) |
 | Secrets (`APP_SECRET`, `API_TOKEN_PEPPER`, optional `WAYBACK_ACCESS_KEY`) | `wrangler secret put` — never committed |
 | Local-only | `.dev.vars` (e.g. `CLOUDPIN_E2E_BYPASS_AUTH=1`) |
 | CI deploy | GitHub secrets `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` |

@@ -12,6 +12,18 @@ x_bookmarks_*.csv
 .wrangler/
 build/
 
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+crash.log
+terraform/environments/**/terraform.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
 # Editor
 .vscode/
 .idea/

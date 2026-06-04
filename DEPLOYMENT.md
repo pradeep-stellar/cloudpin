@@ -30,61 +30,77 @@ npx wrangler r2 bucket list   # must list at least your existing buckets
 
 ## 2. One-time Cloudflare resource creation
 
-You need three of each resource: one for `local` (used by `wrangler dev`), one for `preview`, and one for `production`. The wrangler config already names them with `-local`, `-preview`, and `-prod` suffixes. Create them once and capture the IDs.
+**Recommended:** Terraform under [`terraform/`](terraform/README.md) — one stack per environment (`preview`, `production`). Local dev uses Miniflare; no remote resources needed for `local`.
 
-### 2.1 D1 databases
+### 2.1 Terraform (preview and production)
+
+```bash
+# API token needs D1, R2, Queues (and Zero Trust if enable_access = true)
+export CLOUDFLARE_API_TOKEN=...
+export CLOUDFLARE_ACCOUNT_ID=...
+
+cd terraform/environments/production
+cp terraform.tfvars.example terraform.tfvars
+# Edit: cloudflare_account_id, public_base_url, access_team_domain, access_aud, admin_emails, ...
+
+terraform init
+terraform plan
+terraform apply
+
+# Writes database_id + vars into cloudflare/wrangler.jsonc
+cd ../../cloudflare
+tools/sync-wrangler-from-terraform.sh production   # or: make sync-wrangler-production
+npx wrangler types
+```
+
+Repeat for `terraform/environments/preview` when you need a preview stack.
+
+From `cloudflare/`:
+
+```bash
+make terraform-production   # apply -auto-approve + sync wrangler
+make terraform-preview
+```
+
+Terraform creates:
+
+| Resource | Name pattern |
+| -------- | -------------- |
+| D1 | `cloudpin-prod` / `cloudpin-preview` |
+| R2 | `cloudpin-assets-prod` / `cloudpin-assets-preview` |
+| Queues | `cloudpin-jobs-*`, `cloudpin-jobs-dlq-*` |
+
+Optional: `enable_access = true` creates a self-hosted Access app (AUD synced to wrangler). Optional DNS CNAMEs when `zone_id` and `worker_cname_target` are set (target is usually `*.workers.dev` after the first deploy).
+
+**Do not** also run Wrangler create for the same names — pick Terraform or the legacy script.
+
+### 2.2 Legacy Wrangler bootstrap
+
+If you prefer not to use Terraform:
 
 ```bash
 cd cloudflare
-
-# local D1 is a SQLite file under .wrangler/state/v3/d1 — no remote create needed
-# preview
-npx wrangler d1 create cloudpin-preview
-# production
-npx wrangler d1 create cloudpin-prod
+make bootstrap-wrangler          # production only, Wrangler CLI
+# or: tools/bootstrap.sh --wrangler-only preview
 ```
 
-Each command prints a `database_id`. Paste them into `wrangler.jsonc`:
+Then paste the printed `database_id` into `wrangler.jsonc` manually.
 
-- `database_id` under `env.preview.d1_databases[0]` → preview value
-- `database_id` under `env.production.d1_databases[0]` → production value
+### 2.3 Local
 
-### 2.2 R2 buckets
+`wrangler dev` creates local D1/R2/queues under `.wrangler/state/`. No Terraform step.
 
-```bash
-npx wrangler r2 bucket create cloudpin-assets-preview
-npx wrangler r2 bucket create cloudpin-assets-prod
-```
+### 2.4 Verify wrangler.jsonc
 
-`cloudpin-assets-local` is created on demand by Miniflare the first time you run `wrangler dev`. No action needed.
-
-Bucket names already match the wrangler config; no ID edits required.
-
-### 2.3 Queues and dead letter queue
+After Terraform sync or manual edits:
 
 ```bash
-npx wrangler queues create cloudpin-jobs-preview
-npx wrangler queues create cloudpin-jobs-dlq-preview
-npx wrangler queues create cloudpin-jobs-prod
-npx wrangler queues create cloudpin-jobs-dlq-prod
-```
-
-Worker-defined queues and their DLQs must exist before the worker can produce or consume. `cloudpin-jobs-local` and `cloudpin-jobs-dlq-local` are auto-created by `wrangler dev`.
-
-### 2.4 Workflows
-
-Workflows are created automatically the first time the worker is deployed with a workflow binding. No `wrangler` create step needed. The names `cloudpin-import-*` and `cloudpin-snapshot-*` are baked into `wrangler.jsonc` and will be created on first deploy.
-
-### 2.5 Verify wrangler.jsonc
-
-After edits, regenerate the Worker types and confirm everything resolves:
-
-```bash
+cd cloudflare
 npx wrangler types
-git diff worker-configuration.d.ts   # review the new PreviewEnv/ProductionEnv entries
+git diff worker-configuration.d.ts
 ```
 
-The generated `worker-configuration.d.ts` should now contain real D1, R2, and Queue IDs for `Cloudflare.PreviewEnv` and `Cloudflare.ProductionEnv`. Commit the regenerated file.
+Commit `worker-configuration.d.ts` when D1 IDs change.
 
 ---
 

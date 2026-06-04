@@ -171,22 +171,46 @@ deploy-preview: build ## Build, then deploy to the preview environment
 tail: ## Tail live logs from the production Worker
 	$(WRANGLER) tail
 
-# ----- Cloudflare resource bootstrap (D1, R2, queues) -------------------
+# ----- Terraform / Cloudflare resource bootstrap ---------------------------
+
+.PHONY: terraform-init-production
+terraform-init-production: ## terraform init (production)
+	terraform -chdir=../terraform/environments/production init
+
+.PHONY: terraform-plan-production
+terraform-plan-production: ## terraform plan (production)
+	terraform -chdir=../terraform/environments/production plan
+
+.PHONY: terraform-production
+terraform-production: ## terraform apply + sync wrangler.jsonc (production)
+	tools/terraform-apply.sh production
+
+.PHONY: terraform-preview
+terraform-preview: ## terraform apply + sync wrangler.jsonc (preview)
+	tools/terraform-apply.sh preview
+
+.PHONY: sync-wrangler-production
+sync-wrangler-production: ## Patch wrangler.jsonc from Terraform outputs (production)
+	tools/sync-wrangler-from-terraform.sh production
 
 .PHONY: bootstrap
-bootstrap: ## Bootstrap Cloudflare resources (default: production)
+bootstrap: ## Provision remote resources via Terraform (default: production)
 	tools/bootstrap.sh
 
 .PHONY: bootstrap-preview
-bootstrap-preview: ## Bootstrap Cloudflare resources for the preview environment
+bootstrap-preview: ## Terraform bootstrap for preview
 	tools/bootstrap.sh preview
 
+.PHONY: bootstrap-wrangler
+bootstrap-wrangler: ## Legacy Wrangler-only bootstrap (production)
+	tools/bootstrap.sh --wrangler-only production
+
 .PHONY: bootstrap-local
-bootstrap-local: ## Bootstrap Cloudflare resources for the local environment
-	tools/bootstrap.sh local
+bootstrap-local: ## Wrangler-only local resource hints (Miniflare creates local state)
+	tools/bootstrap.sh --wrangler-only local
 
 .PHONY: bootstrap-all
-bootstrap-all: ## Bootstrap Cloudflare resources for local, preview, and production
+bootstrap-all: ## Terraform bootstrap preview + production
 	tools/bootstrap.sh --all
 
 # ----- secrets -----------------------------------------------------------

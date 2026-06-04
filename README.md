@@ -39,7 +39,7 @@ A Cloudflare-native bookmark manager. A from-scratch reimplementation of [Linkdi
 - `/api/bundles/*` REST routes
 - Admin-lite UI (rely on D1 dashboard for raw SQL for now)
 - Async / resumable Netscape import (large files)
-- Replace placeholder D1 IDs and Access vars in `wrangler.jsonc`; set GitHub secrets for deploy
+- Provision preview/production with [`terraform/`](terraform/README.md), sync `wrangler.jsonc`, set GitHub secrets for deploy
 - Optional hardening from ongoing review: API token lookup by prefix, stale pending asset cleanup
 
 ## Where to look
@@ -48,6 +48,7 @@ A Cloudflare-native bookmark manager. A from-scratch reimplementation of [Linkdi
 | ------------ | ---- |
 | Architecture, parity matrix, security checklist | [`AGENTS.md`](AGENTS.md) |
 | Deploy to Cloudflare | [`DEPLOYMENT.md`](DEPLOYMENT.md) |
+| Provision D1/R2/queues (IaC) | [`terraform/README.md`](terraform/README.md) |
 | Day-2 ops, env vars, queue behavior | [`cloudflare/docs/RUNBOOK.md`](cloudflare/docs/RUNBOOK.md) |
 | Run the app locally | [`cloudflare/README.md`](cloudflare/README.md) |
 | Find a command quickly | `cd cloudflare && make help` |
@@ -75,6 +76,7 @@ Local auth uses Cloudflare Access in production. For e2e and some local flows, s
 .
 ├── AGENTS.md             Architecture, feature parity matrix, phases, runbooks
 ├── DEPLOYMENT.md         Cloudflare provisioning, Access, GitHub Actions, operations
+├── terraform/            IaC: D1, R2, queues, optional Access/DNS (per environment)
 ├── cloudflare/           The cloudpin application (SvelteKit + Hono on Workers)
 │   ├── README.md         Local development guide
 │   ├── docs/             RUNBOOK, SECURITY, API, SHARING, CUTOVER, SEARCH-PERF

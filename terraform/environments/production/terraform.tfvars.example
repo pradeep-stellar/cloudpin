@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars (gitignored) and fill in values.
+
+cloudflare_account_id = "your-account-id"
+
+access_team_domain = "myteam.cloudflareaccess.com"
+access_aud         = "production-access-aud-replace-me"
+
+admin_emails    = "you@example.com"
+public_base_url = "https://app.example.com"
+public_hostname = "share.example.com"
+
+enable_access = false
+app_hostname  = "app.example.com"
+
+zone_id             = ""
+worker_cname_target = ""

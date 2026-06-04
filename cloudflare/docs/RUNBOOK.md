@@ -20,9 +20,11 @@ pre-creation. Access is configured in the dashboard.
   `favicon.load`, `preview.load`, `metadata.refresh`, and `wayback.create`
   messages. Workflows bindings were removed; queues are the durable path.
 
-The `tools/bootstrap.sh` script creates all of these idempotently
-(returns the existing ID if the resource already exists) and prints
-the values to paste into `wrangler.jsonc`.
+**Terraform** (recommended): `terraform/environments/<env>` creates D1, R2,
+queues, and optional Access/DNS; `tools/sync-wrangler-from-terraform.sh`
+updates `wrangler.jsonc`. Or `make terraform-production` from `cloudflare/`.
+
+Legacy: `tools/bootstrap.sh --wrangler-only` uses Wrangler CLI only.
 
 ### Prereqs
 
@@ -36,16 +38,16 @@ the values to paste into `wrangler.jsonc`.
 
 ### Steps
 
-1. From the `cloudflare/` directory, run the bootstrap script for each
-   environment you want to deploy. Use `--all` to do all three in one
-   pass:
+1. Provision remote infrastructure with Terraform (see
+   `../../terraform/README.md`), or run `make bootstrap` / `make bootstrap-all`
+   from `cloudflare/` (Terraform apply + wrangler sync):
 
    ```bash
-   tools/bootstrap.sh --all
-   # or one at a time:
-   tools/bootstrap.sh production
-   tools/bootstrap.sh preview
-   tools/bootstrap.sh local
+   cd cloudflare
+   cp ../terraform/environments/production/terraform.tfvars.example \
+      ../terraform/environments/production/terraform.tfvars
+   # edit terraform.tfvars, export CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID
+   make terraform-production
    ```
 
    The script prints `<env>:<d1_id>` on the last line of each
