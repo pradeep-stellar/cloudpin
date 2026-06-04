@@ -21,7 +21,8 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote:preview": "wrangler d1 migrations apply DB --remote --env preview",
     "db:migrate:remote:prod": "wrangler d1 migrations apply DB --remote --env production",
-    "db:reset:local": "wrangler d1 execute DB --local --command \"SELECT name FROM sqlite_master WHERE type='table';\""
+    "db:reset:local": "wrangler d1 execute DB --local --command \"SELECT name FROM sqlite_master WHERE type='table';\"",
+    "bench:search": "tsx tools/bench-search.ts"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.16.10",
@@ -30,6 +31,8 @@
     "@sveltejs/adapter-cloudflare": "^7.2.8",
     "@sveltejs/kit": "^2.61.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@types/dompurify": "^3.0.5",
+    "@types/marked": "^5.0.2",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.20.0",
     "eslint": "^9.0.0",
@@ -40,6 +43,7 @@
     "prettier-plugin-svelte": "^3.4.0",
     "svelte": "^5.56.0",
     "svelte-check": "^4.4.8",
+    "tsx": "^4.22.4",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.60.0",
     "vite": "^8.0.14",
@@ -47,8 +51,12 @@
     "wrangler": "^4.95.0"
   },
   "dependencies": {
+    "dompurify": "^3.4.8",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.23",
+    "linkedom": "^0.18.12",
+    "marked": "^18.0.5",
+    "xss": "^1.0.15",
     "zod": "^4.4.3"
   }
 }

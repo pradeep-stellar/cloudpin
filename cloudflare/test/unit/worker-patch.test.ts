@@ -21,14 +21,11 @@ export {
 `;
 
 const ALREADY_PATCHED_WORKER = `import { handleQueueBatch } from "../../src/jobs/queue-consumer.ts";
-import { ImportWorkflow, SnapshotWorkflow } from "../../src/workflows/index.ts";
 var server = new Server(manifest);
 var worker_default = { async fetch() {} };
 export {
   worker_default as default,
-  handleQueueBatch as queue,
-  ImportWorkflow,
-  SnapshotWorkflow
+  handleQueueBatch as queue
 };
 `;
 
@@ -45,7 +42,7 @@ describe('patchWorkerFile', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  it('adds queue + workflow imports and named exports to a SvelteKit worker', async () => {
+  it('adds queue import and named export to a SvelteKit worker', async () => {
     await writeFile(workerPath, SVELTEKIT_WORKER, 'utf8');
     const result = await patchWorkerFile(workerPath);
     expect(result.patched).toBe(true);
@@ -55,13 +52,9 @@ describe('patchWorkerFile', () => {
     expect(patched).toContain(
       'import { handleQueueBatch } from "../../src/jobs/queue-consumer.ts";'
     );
-    expect(patched).toContain(
-      'import { ImportWorkflow, SnapshotWorkflow } from "../../src/workflows/index.ts";'
-    );
     expect(patched).toContain('handleQueueBatch as queue');
-    expect(patched).toContain('ImportWorkflow,');
-    expect(patched).toContain('SnapshotWorkflow');
     expect(patched).toContain('worker_default as default');
+    expect(patched).not.toContain('ImportWorkflow');
   });
 
   it('is idempotent: re-running is a no-op', async () => {
@@ -94,18 +87,15 @@ describe('patchWorkerFile', () => {
     );
   });
 
-  it('preserves the default export alongside queue and workflow exports', async () => {
+  it('preserves the default export alongside the queue export', async () => {
     await writeFile(workerPath, SVELTEKIT_WORKER, 'utf8');
     await patchWorkerFile(workerPath);
     const patched = await readFile(workerPath, 'utf8');
 
-    // All four names appear in the same export block, comma-separated
     const exportBlock = patched.match(/export\s*\{[^}]*\}/);
     expect(exportBlock).toBeDefined();
     const block = exportBlock![0];
     expect(block).toMatch(/worker_default as default/);
     expect(block).toMatch(/handleQueueBatch as queue/);
-    expect(block).toMatch(/ImportWorkflow,/);
-    expect(block).toMatch(/SnapshotWorkflow/);
   });
 });

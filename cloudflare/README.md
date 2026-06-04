@@ -39,7 +39,7 @@ cloudflare/
     storage/             R2 helpers (Phase 7+)
     server/api/          Hono API route modules (Phase 3+)
     validation/          Zod schemas (Phase 3+)
-    workflows/           Workflow classes (Phase 8+)
+
   test/
     unit/                Vitest unit tests (domain logic)
     integration/         Cloudflare-runtime integration tests (later)

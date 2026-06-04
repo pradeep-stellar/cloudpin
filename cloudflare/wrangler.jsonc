@@ -51,18 +51,6 @@
       }
     ]
   },
-  "workflows": [
-    {
-      "name": "cloudpin-import-local",
-      "binding": "IMPORT_WORKFLOW",
-      "class_name": "ImportWorkflow"
-    },
-    {
-      "name": "cloudpin-snapshot-local",
-      "binding": "SNAPSHOT_WORKFLOW",
-      "class_name": "SnapshotWorkflow"
-    }
-  ],
   "env": {
     "preview": {
       "name": "cloudpin-preview",
@@ -107,19 +95,7 @@
             "dead_letter_queue": "cloudpin-jobs-dlq-preview"
           }
         ]
-      },
-      "workflows": [
-        {
-          "name": "cloudpin-import-preview",
-          "binding": "IMPORT_WORKFLOW",
-          "class_name": "ImportWorkflow"
-        },
-        {
-          "name": "cloudpin-snapshot-preview",
-          "binding": "SNAPSHOT_WORKFLOW",
-          "class_name": "SnapshotWorkflow"
-        }
-      ]
+      }
     },
     "production": {
       "name": "cloudpin",
@@ -164,19 +140,7 @@
             "dead_letter_queue": "cloudpin-jobs-dlq-prod"
           }
         ]
-      },
-      "workflows": [
-        {
-          "name": "cloudpin-import-prod",
-          "binding": "IMPORT_WORKFLOW",
-          "class_name": "ImportWorkflow"
-        },
-        {
-          "name": "cloudpin-snapshot-prod",
-          "binding": "SNAPSHOT_WORKFLOW",
-          "class_name": "SnapshotWorkflow"
-        }
-      ]
+      }
     }
   }
 }

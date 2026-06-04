@@ -1,5 +1,6 @@
 <script lang="ts">
   import { displayUrl } from '$domain/url-normalize';
+  import { renderMarkdown } from '$lib/markdown';
 
   type Bookmark = {
     id: number;
@@ -27,6 +28,7 @@
   const displayTitle = $derived(bookmark.title || bookmark.url);
   const displayHost = $derived(displayUrl(bookmark.url));
   const hasNotes = $derived(bookmark.notes && bookmark.notes.trim() !== '');
+  const notesHtml = $derived(hasNotes ? renderMarkdown(bookmark.notes) : '');
   const hasDescription = $derived(bookmark.description && bookmark.description.trim() !== '');
 </script>
 
@@ -59,7 +61,7 @@
     <p class="description">{bookmark.description}</p>
   {/if}
   {#if hasNotes}
-    <pre class="notes">{bookmark.notes}</pre>
+    <div class="notes markdown">{@html notesHtml}</div>
   {/if}
   {#if bookmark.tag_names.length > 0}
     <ul class="tags">
@@ -167,11 +169,23 @@
     background: var(--code-bg);
     border-radius: 4px;
     padding: 8px 10px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 12px;
-    white-space: pre-wrap;
     word-break: break-word;
     color: var(--fg);
+  }
+  .notes.markdown :global(p) {
+    margin: 0 0 0.5em;
+  }
+  .notes.markdown :global(p:last-child) {
+    margin-bottom: 0;
+  }
+  .notes.markdown :global(pre) {
+    margin: 0;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .notes.markdown :global(code) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   .tags {
     list-style: none;

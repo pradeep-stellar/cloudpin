@@ -1,10 +1,12 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import CsrfInput from '$lib/components/CsrfInput.svelte';
+  import { renderMarkdown } from '$lib/markdown';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
   const b = $derived(data.bookmark);
+  const notesHtml = $derived(b.notes?.trim() ? renderMarkdown(b.notes) : '');
 </script>
 
 <svelte:head>
@@ -31,10 +33,10 @@
     </section>
   {/if}
 
-  {#if b.notes}
+  {#if b.notes?.trim()}
     <section>
       <h2>Notes</h2>
-      <pre class="notes">{b.notes}</pre>
+      <div class="notes markdown">{@html notesHtml}</div>
     </section>
   {/if}
 
@@ -127,10 +129,22 @@
     background: var(--code-bg);
     border-radius: 4px;
     padding: 8px 10px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 13px;
-    white-space: pre-wrap;
     word-break: break-word;
+  }
+  .notes.markdown :global(p) {
+    margin: 0 0 0.5em;
+  }
+  .notes.markdown :global(p:last-child) {
+    margin-bottom: 0;
+  }
+  .notes.markdown :global(pre) {
+    margin: 0;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .notes.markdown :global(code) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   .tags {
     list-style: none;

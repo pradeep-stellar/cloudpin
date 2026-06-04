@@ -11,18 +11,16 @@ describe('compileSearch', () => {
     expect(compileSearch(undefined)).toEqual({ sql: '', params: [] });
   });
 
-  it('compiles a single term to a LIKE on multiple columns', () => {
+  it('compiles a single term to FTS MATCH', () => {
     const out = compile('hello');
-    expect(out.sql).toContain('"bookmarks"."title" LIKE ?');
-    expect(out.sql).toContain('"bookmarks"."description" LIKE ?');
-    expect(out.sql).toContain('"bookmarks"."notes" LIKE ?');
-    expect(out.sql).toContain('"bookmarks"."url" LIKE ?');
-    expect(out.params).toEqual(['%hello%', '%hello%', '%hello%', '%hello%']);
+    expect(out.sql).toContain('bookmarks_fts MATCH ?');
+    expect(out.sql).not.toContain('LIKE');
+    expect(out.params).toEqual(['"hello"']);
   });
 
-  it('escapes LIKE wildcards in term value', () => {
+  it('quotes FTS tokens that contain special characters', () => {
     const out = compile('100%');
-    expect(out.params[0]).toBe('%100\\%%');
+    expect(out.params[0]).toBe('"100%"');
   });
 
   it('compiles #tag as an EXISTS subquery', () => {
@@ -55,6 +53,7 @@ describe('compileSearch', () => {
   it('joins terms with AND by default', () => {
     const out = compile('foo bar');
     expect(out.sql).toMatch(/AND/);
+    expect(out.sql).toContain('bookmarks_fts MATCH ?');
   });
 
   it('uses OR when explicit', () => {
@@ -64,29 +63,21 @@ describe('compileSearch', () => {
 
   it('produces correct params ordering for OR', () => {
     const out = compile('foo OR bar');
-    expect(out.params).toEqual([
-      '%foo%',
-      '%foo%',
-      '%foo%',
-      '%foo%',
-      '%bar%',
-      '%bar%',
-      '%bar%',
-      '%bar%'
-    ]);
+    expect(out.params).toEqual(['"foo"', '"bar"']);
   });
 
   it('respects AND-binds-tighter-than-OR precedence', () => {
     const out = compile('foo OR bar baz');
-    expect(out.sql).toBe(
-      '(("bookmarks"."title" LIKE ? ESCAPE \'\\\' OR "bookmarks"."description" LIKE ? ESCAPE \'\\\' OR "bookmarks"."notes" LIKE ? ESCAPE \'\\\' OR "bookmarks"."url" LIKE ? ESCAPE \'\\\')) OR ((("bookmarks"."title" LIKE ? ESCAPE \'\\\' OR "bookmarks"."description" LIKE ? ESCAPE \'\\\' OR "bookmarks"."notes" LIKE ? ESCAPE \'\\\' OR "bookmarks"."url" LIKE ? ESCAPE \'\\\')) AND (("bookmarks"."title" LIKE ? ESCAPE \'\\\' OR "bookmarks"."description" LIKE ? ESCAPE \'\\\' OR "bookmarks"."notes" LIKE ? ESCAPE \'\\\' OR "bookmarks"."url" LIKE ? ESCAPE \'\\\')))'
-    );
+    expect(out.sql).toMatch(/OR/);
+    expect(out.sql).toMatch(/AND/);
+    expect(out.sql).toContain('bookmarks_fts MATCH ?');
+    expect(out.params).toEqual(['"foo"', '"bar"', '"baz"']);
   });
 
   it('applies NOT to a single term', () => {
     const out = compile('NOT foo');
     expect(out.sql).toMatch(/^NOT \(/);
-    expect(out.params).toEqual(['%foo%', '%foo%', '%foo%', '%foo%']);
+    expect(out.params).toEqual(['"foo"']);
   });
 
   it('supports parenthesized groups', () => {
@@ -97,7 +88,7 @@ describe('compileSearch', () => {
 
   it('combines term, tag, and keyword in one query', () => {
     const out = compile('foo #rust !unread');
-    expect(out.sql).toContain('"bookmarks"."title"');
+    expect(out.sql).toContain('bookmarks_fts MATCH ?');
     expect(out.sql).toContain('EXISTS');
     expect(out.sql).toContain('"bookmarks"."unread" = 1');
     expect(out.params.length).toBeGreaterThan(0);
@@ -110,15 +101,13 @@ describe('compileSearch', () => {
 
   it('uses the configured table alias', () => {
     const out = compileSearch(parseSearch('foo'), { tableAlias: 'bookmarks' });
-    expect(out.sql).toContain('"bookmarks"."title"');
+    expect(out.sql).toContain('"bookmarks"."id" IN');
   });
 
-  it('uses custom term columns', () => {
+  it('uses custom term columns as FTS column filters', () => {
     const out = compileSearch(parseSearch('foo'), { termColumns: ['title', 'url'] });
-    expect(out.sql).toContain('"bookmarks"."title"');
-    expect(out.sql).toContain('"bookmarks"."url"');
-    expect(out.sql).not.toContain('"bookmarks"."description"');
-    expect(out.params).toHaveLength(2);
+    expect(out.sql).toContain('bookmarks_fts MATCH ?');
+    expect(out.params).toEqual(['title:"foo" OR url:"foo"']);
   });
 
   it('compiles a nested search expression with mixed operators', () => {
@@ -127,5 +116,11 @@ describe('compileSearch', () => {
     expect(out.sql).toMatch(/AND/);
     expect(out.sql).toContain('"bookmarks"."unread" = 1');
     expect(out.params).toContain('rust');
+  });
+
+  it('never falls back to LIKE for term search', () => {
+    const out = compile('hello world');
+    expect(out.sql).not.toContain('LIKE');
+    expect(out.sql).toContain('bookmarks_fts');
   });
 });

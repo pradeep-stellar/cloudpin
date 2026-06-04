@@ -70,14 +70,9 @@ function compileTerm(value: string, ctx: CompileCtx): CompiledSearch {
   if (value === '') {
     return { sql: '1=1', params: [] };
   }
-  const like = `%${escapeLike(value)}%`;
-  const parts: string[] = [];
-  const params: unknown[] = [];
-  for (const column of ctx.termColumns) {
-    parts.push(`${col(ctx.tableAlias, column)} LIKE ? ESCAPE '\\'`);
-    params.push(like);
-  }
-  return { sql: `(${parts.join(' OR ')})`, params };
+  const ftsQuery = buildFtsTermQuery(value, ctx.termColumns);
+  const sql = `${col(ctx.tableAlias, 'id')} IN (SELECT rowid FROM bookmarks_fts WHERE bookmarks_fts MATCH ?)`;
+  return { sql: `(${sql})`, params: [ftsQuery] };
 }
 
 function compileTag(tagName: string, ctx: CompileCtx): CompiledSearch {
@@ -137,6 +132,15 @@ function compileGroup(child: SearchNode, ctx: CompileCtx): CompiledSearch {
   return { sql: `(${inner.sql})`, params: inner.params };
 }
 
-function escapeLike(input: string): string {
-  return input.replace(/[\\%_]/g, (c) => `\\${c}`);
+function buildFtsTermQuery(value: string, columns: readonly string[]): string {
+  const token = escapeFtsToken(value);
+  const usesAllDefaultColumns =
+    columns.length === DEFAULT_TERM_COLUMNS.length &&
+    columns.every((c, i) => c === DEFAULT_TERM_COLUMNS[i]);
+  if (usesAllDefaultColumns) return token;
+  return columns.map((name) => `${name}:${token}`).join(' OR ');
+}
+
+function escapeFtsToken(input: string): string {
+  return `"${input.replace(/"/g, '""')}"`;
 }

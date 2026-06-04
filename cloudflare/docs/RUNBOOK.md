@@ -7,8 +7,18 @@ for a cloudpin deployment on Cloudflare.
 
 Before the first deploy, three Cloudflare resources need to exist per
 environment: a D1 database, an R2 bucket, and a queue with a dead
-letter queue. Browser Rendering and Workflows are bindings and need
-no pre-creation. Access is configured in the dashboard.
+letter queue. Browser Rendering is a binding and needs no
+pre-creation. Access is configured in the dashboard.
+
+### Background jobs (canonical paths)
+
+- **Netscape import:** `POST /settings/import` parses the upload in the
+  Worker and writes bookmarks directly to D1 (synchronous; large files
+  should move to a queue in a later phase).
+- **Snapshots / favicons / previews / metadata / Wayback:** Cloudflare
+  Queues consumer (`src/jobs/queue-consumer.ts`) via `snapshot.create`,
+  `favicon.load`, `preview.load`, `metadata.refresh`, and `wayback.create`
+  messages. Workflows bindings were removed; queues are the durable path.
 
 The `tools/bootstrap.sh` script creates all of these idempotently
 (returns the existing ID if the resource already exists) and prints

@@ -129,7 +129,6 @@ export async function reorderBundles(
       .set({ sortOrder: i + 1, dateModified: now })
       .where(and(eq(bookmarkBundles.id, orderedIds[i]!), eq(bookmarkBundles.ownerId, ownerId)));
   }
-  void desc;
 }
 
 function toBundleRow(row: typeof bookmarkBundles.$inferSelect): BundleRow {

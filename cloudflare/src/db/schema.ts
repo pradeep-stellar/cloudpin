@@ -71,6 +71,14 @@ export const userProfiles = sqliteTable('user_profiles', {
   legacySearch: integer('legacy_search', { mode: 'boolean' }).notNull().default(false)
 });
 
+/** FTS5 external-content index; rows are synced via SQL triggers (migration 0003). */
+export const bookmarksFts = sqliteTable('bookmarks_fts', {
+  title: text('title'),
+  description: text('description'),
+  notes: text('notes'),
+  url: text('url')
+});
+
 export const bookmarks = sqliteTable(
   'bookmarks',
   {

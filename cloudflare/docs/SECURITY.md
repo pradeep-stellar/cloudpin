@@ -71,6 +71,9 @@ following before going to production.
 - [ ] `POST /settings/import` is rate-limited.
 - [ ] All Worker responses include `X-Content-Type-Options: nosniff`.
 - [ ] Snapshot assets set a strict CSP based on content type.
+- [ ] Bookmark notes are rendered from Markdown through the `xss` allowlist with a
+      tight allowlist (no `<script>`, no `javascript:` URLs, no inline
+      handlers). UI pages do not need a relaxed CSP for notes HTML.
 
 ## Operations
 

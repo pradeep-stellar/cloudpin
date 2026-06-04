@@ -11,8 +11,6 @@ interface __BaseEnv_Env {
 	ACCESS_AUD?: "preview-access-aud" | "production-access-aud";
 	ADMIN_EMAILS?: "";
 	PUBLIC_BASE_URL: "https://preview.example.com" | "https://app.example.com" | "http://localhost:8787";
-	IMPORT_WORKFLOW: Workflow /* ImportWorkflow */;
-	SNAPSHOT_WORKFLOW: Workflow /* SnapshotWorkflow */;
 	FAVICON_PROVIDER?: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url={url}&size=32";
 }
 declare namespace Cloudflare {
@@ -29,8 +27,6 @@ declare namespace Cloudflare {
 		ACCESS_AUD: "preview-access-aud";
 		ADMIN_EMAILS: "";
 		PUBLIC_BASE_URL: "https://preview.example.com";
-		IMPORT_WORKFLOW: Workflow /* ImportWorkflow */;
-		SNAPSHOT_WORKFLOW: Workflow /* SnapshotWorkflow */;
 	}
 	interface ProductionEnv {
 		ASSETS_BUCKET: R2Bucket;
@@ -42,8 +38,6 @@ declare namespace Cloudflare {
 		ACCESS_AUD: "production-access-aud";
 		ADMIN_EMAILS: "";
 		PUBLIC_BASE_URL: "https://app.example.com";
-		IMPORT_WORKFLOW: Workflow /* ImportWorkflow */;
-		SNAPSHOT_WORKFLOW: Workflow /* SnapshotWorkflow */;
 	}
 	interface Env extends __BaseEnv_Env {}
 }

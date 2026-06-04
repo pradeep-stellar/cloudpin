@@ -351,18 +351,23 @@ async function fetchTagNamesForBookmarks(
   const out = new Map<number, string[]>();
   if (bookmarkIds.length === 0) return out;
   const db = getDb(d1);
-  const rows = await db
-    .select({
-      bookmarkId: bookmarkTags.bookmarkId,
-      name: tags.name
-    })
-    .from(bookmarkTags)
-    .innerJoin(tags, eq(tags.id, bookmarkTags.tagId))
-    .where(inArray(bookmarkTags.bookmarkId, bookmarkIds));
-  for (const r of rows) {
-    const list = out.get(r.bookmarkId) ?? [];
-    list.push(r.name);
-    out.set(r.bookmarkId, list);
+  // D1 caps bound parameters per statement (~100); chunk large IN lists.
+  const CHUNK = 50;
+  for (let i = 0; i < bookmarkIds.length; i += CHUNK) {
+    const chunk = bookmarkIds.slice(i, i + CHUNK);
+    const rows = await db
+      .select({
+        bookmarkId: bookmarkTags.bookmarkId,
+        name: tags.name
+      })
+      .from(bookmarkTags)
+      .innerJoin(tags, eq(tags.id, bookmarkTags.tagId))
+      .where(inArray(bookmarkTags.bookmarkId, chunk));
+    for (const r of rows) {
+      const list = out.get(r.bookmarkId) ?? [];
+      list.push(r.name);
+      out.set(r.bookmarkId, list);
+    }
   }
   return out;
 }

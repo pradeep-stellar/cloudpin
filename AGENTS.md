@@ -520,26 +520,13 @@ Only show the raw token once. Store a SHA-256 hash of a high-entropy random toke
   
 
 Feed tokens are bearer credentials in URLs. Treat them as secrets. Allow rotation.
-### toasts
-- `id INTEGER PRIMARY KEY`
-  
-- `owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE`
-  
-- `key TEXT NOT NULL`
-  
-- `message TEXT NOT NULL`
-  
-- `acknowledged INTEGER NOT NULL DEFAULT 0`
-  
-### global_settings
-- `id INTEGER PRIMARY KEY CHECK (id = 1)`
-  
-- `landing_page TEXT NOT NULL DEFAULT 'login'`
-  
-- `guest_profile_user_id INTEGER`
-  
-- `enable_link_prefetch INTEGER NOT NULL DEFAULT 0`
-  
+### Deferred tables
+
+`toasts` and `global_settings` from the original Linkding plan are **not**
+in the cloudpin D1 schema. There is no toast UI and landing redirects are
+handled in application routes. Revisit only when a concrete feature needs
+them.
+
 ## Search Design
 The current search behavior includes:
 
@@ -1487,6 +1474,15 @@ Recommended:
 - Use Cloudflare WAF/rate limiting rules for `/api/*`, `/bookmarks/check`, and import/upload routes.
   
 ## Risks and Open Decisions
+
+0. **Workflows vs queues**
+
+- Cloudpin uses **Queues** for import-adjacent jobs (metadata, favicons,
+  previews, snapshots, Wayback), not Cloudflare Workflows bindings.
+- Netscape import runs synchronously in `POST /settings/import` for now.
+- Reintroduce Workflows only if imports or snapshots need resumable
+  multi-step orchestration beyond queue retries.
+
 1. Server-side HTML snapshot fidelity
   
 

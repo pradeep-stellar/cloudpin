@@ -16,7 +16,7 @@ export const load: ServerLoad = async ({ locals, platform }) => {
   const { items, total } = await listBookmarks(platform!.env.DB as D1Database, {
     ownerId: user.id,
     archivedFilter: 'false',
-    limit: 200,
+    limit: 30,
     offset: 0
   });
   const shared = items.filter((b) => b.shared);
