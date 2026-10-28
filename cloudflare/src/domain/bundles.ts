@@ -12,17 +12,17 @@ export type BundleFilters = {
 export function buildBundleSearch(filters: BundleFilters): string {
   const parts: string[] = [];
   if (filters.search.trim() !== '') parts.push(filters.search.trim());
-  for (const t of splitTags(filters.anyTags)) {
-    parts.push(`#${normalizeTagName(t)}`);
-  }
+  const any = splitTags(filters.anyTags).map((t) => `#${normalizeTagName(t)}`);
+  if (any.length === 1) parts.push(any[0]!);
+  if (any.length > 1) parts.push(`(${any.join(' OR ')})`);
   for (const t of splitTags(filters.allTags)) {
     parts.push(`#${normalizeTagName(t)}`);
   }
   for (const t of splitTags(filters.excludedTags)) {
-    parts.push(`-#${normalizeTagName(t)}`);
+    parts.push(`!#${normalizeTagName(t)}`);
   }
   if (filters.filterUnread === 'yes') parts.push('!unread');
-  if (filters.filterShared === 'yes') parts.push('#__shared__');
+  if (filters.filterShared === 'yes') parts.push('!shared');
   return parts.join(' ');
 }
 

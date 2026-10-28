@@ -3,7 +3,7 @@ export type SearchMode = 'strict' | 'lax' | 'legacy';
 export type SearchNode =
   | { type: 'term'; value: string; field?: 'title' | 'description' | 'notes' | 'url' }
   | { type: 'tag'; value: string }
-  | { type: 'keyword'; value: 'unread' | 'untagged' }
+  | { type: 'keyword'; value: 'unread' | 'untagged' | 'shared' }
   | { type: 'unary'; op: 'NOT'; child: SearchNode }
   | { type: 'binary'; op: 'AND' | 'OR'; left: SearchNode; right: SearchNode }
   | { type: 'group'; child: SearchNode };
@@ -16,7 +16,7 @@ export type SearchOptions = {
 type Token =
   | { type: 'word'; value: string }
   | { type: 'tag'; value: string }
-  | { type: 'kw'; value: 'unread' | 'untagged' }
+  | { type: 'kw'; value: 'unread' | 'untagged' | 'shared' }
   | { type: 'lparen' }
   | { type: 'rparen' }
   | { type: 'op'; value: 'AND' | 'OR' | 'NOT' };
@@ -75,6 +75,11 @@ function tokenize(input: string): Token[] {
       if (rest.startsWith('untagged')) {
         tokens.push({ type: 'kw', value: 'untagged' });
         i += 1 + 'untagged'.length;
+        continue;
+      }
+      if (rest.startsWith('shared')) {
+        tokens.push({ type: 'kw', value: 'shared' });
+        i += 1 + 'shared'.length;
         continue;
       }
       tokens.push({ type: 'op', value: 'NOT' });
@@ -259,7 +264,10 @@ export function tagsOf(node: SearchNode | undefined): string[] {
   }
 }
 
-export function hasKeyword(node: SearchNode | undefined, kw: 'unread' | 'untagged'): boolean {
+export function hasKeyword(
+  node: SearchNode | undefined,
+  kw: 'unread' | 'untagged' | 'shared'
+): boolean {
   if (!node) return false;
   switch (node.type) {
     case 'keyword':

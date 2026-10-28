@@ -91,9 +91,12 @@ function compileTag(tagName: string, ctx: CompileCtx): CompiledSearch {
   return { sql, params: [tagName.toLowerCase()] };
 }
 
-function compileKeyword(value: 'unread' | 'untagged', ctx: CompileCtx): CompiledSearch {
+function compileKeyword(value: 'unread' | 'untagged' | 'shared', ctx: CompileCtx): CompiledSearch {
   if (value === 'unread') {
     return { sql: `${col(ctx.tableAlias, 'unread')} = 1`, params: [] };
+  }
+  if (value === 'shared') {
+    return { sql: `${col(ctx.tableAlias, 'shared')} = 1`, params: [] };
   }
   const bookmarkIdCol = col(ctx.btAlias, 'bookmark_id');
   const sql = `NOT EXISTS (

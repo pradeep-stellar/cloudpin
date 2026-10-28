@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import {
   BookmarkCreate,
@@ -21,12 +21,14 @@ import { completeAsset, createAsset, failAsset } from '../../db/repositories/ass
 import { r2Keys } from '../../storage/asset-keys';
 import { putObject } from '../../storage/r2';
 import { normalizeUrl } from '../../domain/url-normalize';
+import { enqueueBookmarkJobs } from '../../jobs/enqueue';
 
 const SINGLEFILE_MAX_BYTES = 20 * 1024 * 1024;
 
 type Bindings = {
   DB: D1Database;
   ASSETS_BUCKET: R2Bucket;
+  JOBS: Queue;
   APP_SECRET?: string;
   ACCESS_TEAM_DOMAIN?: string;
   ACCESS_AUD?: string;
@@ -123,6 +125,7 @@ bookmarksRouter.post('/', async (c) => {
       },
       { upsert }
     );
+    if (result.created) await enqueueBookmarkJobs(c.env, user.id, result.id);
     const item = await getBookmarkById(c.env.DB, user.id, result.id);
     return c.json(item, { status: result.created ? 201 : 200 });
   } catch (err) {
@@ -156,6 +159,35 @@ bookmarksRouter.get('/check', async (c) => {
   );
 });
 
+// Literal paths must be registered before `/:id`, or Hono routes
+// `/archived` to the `/:id` handler and returns 400.
+bookmarksRouter.get('/archived', async (c) => {
+  const user = requireUser(c);
+  const offset = Number(c.req.query('offset') ?? '0');
+  const limit = Math.min(Number(c.req.query('limit') ?? '100'), 200);
+  const { items, total } = await listBookmarks(c.env.DB, {
+    ownerId: user.id,
+    archivedFilter: 'only',
+    limit,
+    offset
+  });
+  return c.json({ count: total, results: items });
+});
+
+bookmarksRouter.get('/shared', async (c) => {
+  const user = requireUser(c);
+  const offset = Number(c.req.query('offset') ?? '0');
+  const limit = Math.min(Number(c.req.query('limit') ?? '100'), 200);
+  const { items, total } = await listBookmarks(c.env.DB, {
+    ownerId: user.id,
+    searchQuery: '!shared',
+    archivedFilter: 'false',
+    limit,
+    offset
+  });
+  return c.json({ count: total, results: items });
+});
+
 const IdParam = z.object({ id: z.coerce.number().int().positive() });
 
 bookmarksRouter.get('/:id', async (c) => {
@@ -167,7 +199,7 @@ bookmarksRouter.get('/:id', async (c) => {
   return c.json(item);
 });
 
-bookmarksRouter.put('/:id', async (c) => {
+const updateHandler = async (c: Context<ApiEnv>) => {
   const user = requireUser(c);
   const idParsed = IdParam.safeParse({ id: c.req.param('id') });
   if (!idParsed.success) return handleError(idParsed.error);
@@ -186,15 +218,10 @@ bookmarksRouter.put('/:id', async (c) => {
   } catch (err) {
     return handleError(err);
   }
-});
+};
 
-bookmarksRouter.patch('/:id', async (c) => {
-  return bookmarksRouter.fetch(
-    new Request(c.req.url, { method: 'PUT', headers: c.req.raw.headers, body: c.req.raw.body }),
-    c.env,
-    c.executionCtx
-  );
-});
+bookmarksRouter.put('/:id', updateHandler);
+bookmarksRouter.patch('/:id', updateHandler);
 
 bookmarksRouter.delete('/:id', async (c) => {
   const user = requireUser(c);
@@ -221,33 +248,6 @@ bookmarksRouter.post('/:id/unarchive', async (c) => {
   const updated = await setBookmarkArchive(c.env.DB, user.id, parsed.data.id, false);
   if (!updated) return c.json({ error: 'not_found' }, 404);
   return c.json(await getBookmarkById(c.env.DB, user.id, parsed.data.id));
-});
-
-bookmarksRouter.get('/archived', async (c) => {
-  const user = requireUser(c);
-  const offset = Number(c.req.query('offset') ?? '0');
-  const limit = Math.min(Number(c.req.query('limit') ?? '100'), 200);
-  const { items, total } = await listBookmarks(c.env.DB, {
-    ownerId: user.id,
-    archivedFilter: 'only',
-    limit,
-    offset
-  });
-  return c.json({ count: total, results: items });
-});
-
-bookmarksRouter.get('/shared', async (c) => {
-  const user = requireUser(c);
-  const offset = Number(c.req.query('offset') ?? '0');
-  const limit = Math.min(Number(c.req.query('limit') ?? '100'), 200);
-  const { items, total } = await listBookmarks(c.env.DB, {
-    ownerId: user.id,
-    archivedFilter: 'false',
-    limit,
-    offset
-  });
-  const shared = items.filter((b) => b.shared);
-  return c.json({ count: total, results: shared });
 });
 
 bookmarksRouter.post('/:bookmarkId/singlefile', async (c) => {

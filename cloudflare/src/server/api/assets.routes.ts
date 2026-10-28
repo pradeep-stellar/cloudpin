@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import {
   createAsset,
@@ -87,7 +87,7 @@ const AssetParams = z.object({
   assetId: z.coerce.number().int().positive()
 });
 
-assetsRouter.get('/bookmarks/:bookmarkId/assets/:assetId', async (c) => {
+async function serveAsset(c: Context<AssetsEnv>, download: boolean) {
   const user = userOrThrow(c);
   const params = AssetParams.safeParse({
     bookmarkId: c.req.param('bookmarkId'),
@@ -101,8 +101,7 @@ assetsRouter.get('/bookmarks/:bookmarkId/assets/:assetId', async (c) => {
   }
   const obj = await getObjectStream(c.env.ASSETS_BUCKET, asset.r2Key);
   if (!obj) return c.json({ error: 'object_missing' }, 404);
-  const url = new URL(c.req.url);
-  const disposition = url.searchParams.get('download') === '1' ? 'attachment' : 'inline';
+  const disposition = download ? 'attachment' : 'inline';
   return new Response(obj.body, {
     headers: {
       'Content-Type': asset.contentType,
@@ -110,20 +109,17 @@ assetsRouter.get('/bookmarks/:bookmarkId/assets/:assetId', async (c) => {
       'Content-Disposition': `${disposition}; filename="${asset.displayName || 'asset'}"`,
       'Content-Security-Policy': cspForContentType(asset.contentType),
       'Cache-Control': 'private, max-age=300',
-      'X-Content-Type-Options': 'nosniff'
+      'X-Content-Type-Options': 'nosniff',
+      ...(asset.gzip ? { 'Content-Encoding': 'gzip' } : {})
     }
   });
-});
+}
 
-assetsRouter.get('/bookmarks/:bookmarkId/assets/:assetId/download', async (c) => {
-  const url = new URL(c.req.url);
-  url.searchParams.set('download', '1');
-  return assetsRouter.fetch(
-    new Request(url.toString(), { method: 'GET', headers: c.req.raw.headers }),
-    c.env,
-    c.executionCtx
-  );
-});
+assetsRouter.get('/bookmarks/:bookmarkId/assets/:assetId', (c) =>
+  serveAsset(c, c.req.query('download') === '1')
+);
+
+assetsRouter.get('/bookmarks/:bookmarkId/assets/:assetId/download', (c) => serveAsset(c, true));
 
 assetsRouter.delete('/bookmarks/:bookmarkId/assets/:assetId', async (c) => {
   const user = userOrThrow(c);

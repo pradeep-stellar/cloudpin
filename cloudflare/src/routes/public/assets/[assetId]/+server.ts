@@ -68,7 +68,8 @@ export const GET: RequestHandler = async ({ params, url, platform }) => {
       'Content-Disposition': contentDispositionHeader(disposition, asset.displayName || 'asset'),
       'Content-Security-Policy': cspForContentType(asset.contentType),
       'Cache-Control': publicCacheControl(asset.contentType),
-      'X-Content-Type-Options': 'nosniff'
+      'X-Content-Type-Options': 'nosniff',
+      ...(asset.gzip ? { 'Content-Encoding': 'gzip' } : {})
     }
   });
 };

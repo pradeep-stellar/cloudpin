@@ -4,7 +4,7 @@ import { getDb } from '../client';
 import { bookmarks, bookmarkTags, tags } from '../schema';
 import { normalizeUrl } from '../../domain/url-normalize';
 import { normalizeTagName } from '../../domain/tags';
-import { parseSearch } from '../../domain/search-parser';
+import { parseSearch, SearchParseError, type SearchNode } from '../../domain/search-parser';
 import { compileSearch, type CompiledSearch } from '../../domain/search-sql';
 
 // sql.raw() only takes a string; bind the compiled search params by
@@ -20,6 +20,17 @@ function compiledToSql(compiled: CompiledSearch): SQL {
     }
   }
   return acc ?? sql`1=1`;
+}
+
+// A typo like an unbalanced paren must not 500 the page: fall back to
+// searching the raw text as one term.
+export function parseSearchLenient(query: string): SearchNode | undefined {
+  try {
+    return parseSearch(query);
+  } catch (err) {
+    if (err instanceof SearchParseError) return { type: 'term', value: query.trim() };
+    throw err;
+  }
 }
 
 export type BookmarkListItem = {
@@ -64,13 +75,12 @@ export async function listBookmarks(
     conditions.push(eq(bookmarks.isArchived, opts.archivedFilter === 'true'));
   } else if (opts.archivedFilter === 'only') {
     conditions.push(eq(bookmarks.isArchived, true));
-  } else {
+  } else if (opts.archivedFilter !== 'all') {
     conditions.push(eq(bookmarks.isArchived, false));
   }
 
   if (opts.searchQuery && opts.searchQuery.trim() !== '') {
-    const ast = parseSearch(opts.searchQuery);
-    const compiled = compileSearch(ast);
+    const compiled = compileSearch(parseSearchLenient(opts.searchQuery));
     if (compiled.sql) {
       conditions.push(compiledToSql(compiled));
     }

@@ -3,6 +3,7 @@ import { createBookmark } from '$db/repositories/bookmarks.repo';
 import { BookmarkCreate } from '$validation/bookmark.schemas';
 import { splitTags } from '$domain/tags';
 import { requireFormCsrf } from '$lib/server/auth/form-action';
+import { enqueueBookmarkJobs } from '../../../jobs/enqueue';
 
 export const load: ServerLoad = async ({ locals }) => {
   if (locals.auth.state.kind === 'unauthenticated') {
@@ -49,6 +50,7 @@ export const actions: Actions = {
       },
       { upsert: true }
     );
+    if (result.created) await enqueueBookmarkJobs(platform!.env, user.id, result.id);
     throw redirect(303, `/bookmarks/${result.id}/details`);
   }
 };

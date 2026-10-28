@@ -77,7 +77,8 @@ export function importNetscape(html: string): ImportedBookmark[] {
       .map((t) => normalizeTagName(t))
       .filter(Boolean);
     const toRead = (attrs['TOREAD'] ?? '').toLowerCase();
-    const shared = (attrs['SHARED'] ?? '').toLowerCase() === '1';
+    // Linkding writes SHARED="1"; Pinboard writes PRIVATE="0"/"1" instead.
+    const shared = attrs['SHARED'] === '1' || attrs['PRIVATE'] === '0';
     const archived = toRead === '0';
     const unread = toRead === '1';
     const lookAhead = html.slice(m.index + m[0].length, m.index + m[0].length + 4096);
@@ -104,7 +105,7 @@ export function importNetscape(html: string): ImportedBookmark[] {
       notes,
       tags,
       archived,
-      unread: unread || (!archived && !shared),
+      unread,
       shared,
       dateAdded: parseDateAttr(attrs['ADD_DATE']) ?? nowIso()
     });

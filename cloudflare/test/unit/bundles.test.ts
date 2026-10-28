@@ -38,7 +38,7 @@ describe('buildBundleSearch', () => {
         filterUnread: 'off',
         filterShared: 'off'
       })
-    ).toBe('#js #typescript');
+    ).toBe('(#js OR #typescript)');
   });
 
   it('expands all tags to AND', () => {
@@ -54,7 +54,7 @@ describe('buildBundleSearch', () => {
     ).toBe('#rust #async');
   });
 
-  it('expands excluded tags with minus prefix', () => {
+  it('expands excluded tags with NOT prefix', () => {
     expect(
       buildBundleSearch({
         search: '',
@@ -64,7 +64,7 @@ describe('buildBundleSearch', () => {
         filterUnread: 'off',
         filterShared: 'off'
       })
-    ).toBe('-#spam -#draft');
+    ).toBe('!#spam !#draft');
   });
 
   it('adds !unread keyword when filter is yes', () => {
@@ -78,6 +78,19 @@ describe('buildBundleSearch', () => {
         filterShared: 'off'
       })
     ).toBe('!unread');
+  });
+
+  it('adds !shared keyword when shared filter is yes', () => {
+    expect(
+      buildBundleSearch({
+        search: '',
+        anyTags: '',
+        allTags: '',
+        excludedTags: '',
+        filterUnread: 'off',
+        filterShared: 'yes'
+      })
+    ).toBe('!shared');
   });
 
   it('does not add keyword when filter is off or no', () => {
@@ -103,7 +116,7 @@ describe('buildBundleSearch', () => {
         filterUnread: 'yes',
         filterShared: 'off'
       })
-    ).toBe('rust guide #js #ts #programming -#spam !unread');
+    ).toBe('rust guide (#js OR #ts) #programming !#spam !unread');
   });
 
   it('trims whitespace from search term', () => {

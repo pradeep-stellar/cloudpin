@@ -69,6 +69,21 @@ describe('Netscape export/import', () => {
     expect(imported[1]!.shared).toBe(true);
   });
 
+  it('does not mark Pinboard entries unread and reads PRIVATE as the share flag', () => {
+    const html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<DL><p>
+<DT><A HREF="https://a.example" ADD_DATE="1700000000" PRIVATE="1" TAGS="x">Private</A>
+<DT><A HREF="https://b.example" ADD_DATE="1700000000" PRIVATE="0" TOREAD="1">Public to-read</A>
+</DL><p>`;
+    const result = importNetscape(html);
+    expect(result).toHaveLength(2);
+    expect(result[0]!.unread).toBe(false);
+    expect(result[0]!.shared).toBe(false);
+    expect(result[0]!.archived).toBe(false);
+    expect(result[1]!.unread).toBe(true);
+    expect(result[1]!.shared).toBe(true);
+  });
+
   it('parses a typical linkding export', () => {
     const html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">

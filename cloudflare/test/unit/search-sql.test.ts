@@ -124,3 +124,23 @@ describe('compileSearch', () => {
     expect(out.sql).toContain('bookmarks_fts');
   });
 });
+
+describe('bundle search strings compile to the intended SQL', () => {
+  it('!#tag excludes the tag', () => {
+    const out = compile('!#spam');
+    expect(out.sql).toMatch(/^NOT \(EXISTS/);
+    expect(out.params).toEqual(['spam']);
+  });
+
+  it('(#a OR #b) matches either tag', () => {
+    const out = compile('(#js OR #ts)');
+    expect(out.sql).toContain(') OR (');
+    expect(out.params).toEqual(['js', 'ts']);
+  });
+
+  it('!shared filters on the shared column', () => {
+    const out = compile('!shared');
+    expect(out.sql).toBe('"bookmarks"."shared" = 1');
+    expect(out.params).toEqual([]);
+  });
+});
