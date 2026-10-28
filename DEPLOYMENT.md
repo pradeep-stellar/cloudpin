@@ -14,7 +14,7 @@ For the architecture and feature roadmap, see `AGENTS.md`. For day-to-day dev co
 | Cloudflare account ID | Found in the Workers dashboard sidebar. Stored as `CLOUDFLARE_ACCOUNT_ID` in GitHub secrets. |
 | Cloudflare API token | **Edit Cloudflare Workers** template at minimum, also include D1/R2/Queues/Workflows scopes if you want CI to manage them. Stored as `CLOUDFLARE_API_TOKEN`. |
 | Domain on Cloudflare | Required for custom hostnames and Cloudflare Access. Optional for a `*.workers.dev` deploy. |
-| Node.js 20+ and npm 10+ | Local CLI only. Production runs on Cloudflare's workerd runtime. |
+| Node.js 22+ and npm 10+ | Local CLI only. Production runs on Cloudflare's workerd runtime. |
 | Wrangler 4.95+ | `npx wrangler --version` should report 4.95 or newer. The repo pins this in `cloudflare/package.json`. |
 
 Verify CLI access before going further:

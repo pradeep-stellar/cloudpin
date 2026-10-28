@@ -56,7 +56,7 @@ A Cloudflare-native bookmark manager. A from-scratch reimplementation of [Linkdi
 
 ## Quick start
 
-Prerequisites: Node.js 20+, npm 10+, a Cloudflare account (only needed for remote `dev`, `db:migrate:remote:*`, and `deploy`).
+Prerequisites: Node.js 22+, npm 10+, a Cloudflare account (only needed for remote `dev`, `db:migrate:remote:*`, and `deploy`).
 
 ```bash
 cd cloudflare
