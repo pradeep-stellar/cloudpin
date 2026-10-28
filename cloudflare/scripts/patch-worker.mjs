@@ -38,10 +38,12 @@ const WORKFLOW_IMPORT_RE =
   /^import \{ ImportWorkflow, SnapshotWorkflow \} from "\.\.\/\.\.\/src\/workflows\/index\.ts";\n/m;
 const WORKFLOW_EXPORT_RE = /\n?  ImportWorkflow,\n?  SnapshotWorkflow,?/g;
 
+/** @param {string} source */
 function stripLegacyWorkflowExports(source) {
   return source.replace(WORKFLOW_IMPORT_RE, '').replace(WORKFLOW_EXPORT_RE, '');
 }
 
+/** @param {string} source */
 function isPatched(source) {
   return source.includes('handleQueueBatch as queue') && !source.includes('workflows/index');
 }

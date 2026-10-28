@@ -6,18 +6,18 @@ Cloudflare-native bookmark manager under this directory. Architecture and the fu
 
 Phases **0–2** and most of **4–8** are implemented in this tree. Use the table below for detail; the repo root [`README.md`](../README.md) has the same summary plus deploy notes.
 
-| Phase | Scope | Status |
-| ----- | ----- | ------ |
-| 0 | Scaffold (SvelteKit + Hono + Workers) and Wrangler config | **done** |
-| 1 | Core domain and D1 schema (migrations `0001`–`0003`, FTS5) | **done** |
-| 2 | Access JWT, CSRF, API tokens, session upsert | **done** |
-| 3 | REST API | **partial** — bookmarks, tags, assets, profile; **no** `/api/bundles` yet |
-| 4 | Bookmark UI (list, archived, shared, CRUD, details) | **done** |
-| 5 | Tags, bundles, bulk actions | **done** |
-| 6 | Settings, feeds, PWA, import/export | **partial** — `POST /settings/import` is synchronous |
-| 7 | R2 + queue consumer (favicon, preview, metadata) | **done** |
-| 8 | Wayback, SingleFile POST, snapshot queue + Browser binding | **partial** |
-| 9–10 | `tools/migrate-linkding.ts`, e2e, runbooks | **partial** |
+| Phase | Scope                                                      | Status                                                                    |
+| ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 0     | Scaffold (SvelteKit + Hono + Workers) and Wrangler config  | **done**                                                                  |
+| 1     | Core domain and D1 schema (migrations `0001`–`0003`, FTS5) | **done**                                                                  |
+| 2     | Access JWT, CSRF, API tokens, session upsert               | **done**                                                                  |
+| 3     | REST API                                                   | **partial** — bookmarks, tags, assets, profile; **no** `/api/bundles` yet |
+| 4     | Bookmark UI (list, archived, shared, CRUD, details)        | **done**                                                                  |
+| 5     | Tags, bundles, bulk actions                                | **done**                                                                  |
+| 6     | Settings, feeds, PWA, import/export                        | **partial** — `POST /settings/import` is synchronous                      |
+| 7     | R2 + queue consumer (favicon, preview, metadata)           | **done**                                                                  |
+| 8     | Wayback, SingleFile POST, snapshot queue + Browser binding | **partial**                                                               |
+| 9–10  | `tools/migrate-linkding.ts`, e2e, runbooks                 | **partial**                                                               |
 
 **Tests:** `npm test` — 324 unit tests across domain, auth, API, jobs, and repos. `npm run test:e2e` — 19 Playwright specs (smoke, bookmarks, search, bulk, import, API token, public assets, bundle reorder).
 
@@ -85,13 +85,13 @@ npm run db:migrate:local
 
 ### Configuration and variables
 
-| Kind | Where |
-| ---- | ----- |
+| Kind                                                                               | Where                                                                                             |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Public vars (`PUBLIC_BASE_URL`, `ACCESS_*`, `ADMIN_EMAILS`, `FAVICON_PROVIDER`, …) | `terraform.tfvars` → `terraform apply` → `make sync-wrangler-production` patches `wrangler.jsonc` |
-| D1 `database_id` | Terraform output → `sync-wrangler-from-terraform.sh` (or manual) |
-| Secrets (`APP_SECRET`, `API_TOKEN_PEPPER`, optional `WAYBACK_ACCESS_KEY`) | `wrangler secret put` — never committed |
-| Local-only | `.dev.vars` (e.g. `CLOUDPIN_E2E_BYPASS_AUTH=1`) |
-| CI deploy | GitHub secrets `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` |
+| D1 `database_id`                                                                   | Terraform output → `sync-wrangler-from-terraform.sh` (or manual)                                  |
+| Secrets (`APP_SECRET`, `API_TOKEN_PEPPER`, optional `WAYBACK_ACCESS_KEY`)          | `wrangler secret put` — never committed                                                           |
+| Local-only                                                                         | `.dev.vars` (e.g. `CLOUDPIN_E2E_BYPASS_AUTH=1`)                                                   |
+| CI deploy                                                                          | GitHub secrets `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`                                    |
 
 Types: `worker-configuration.d.ts` (generated), `src/app.d.ts`, `AuthEnv` in `src/lib/server/auth/middleware.ts`.
 
@@ -118,16 +118,16 @@ GitHub Actions: [`.github/workflows/`](../.github/workflows/) at the repo root (
 
 Framework-free, heavily unit-tested:
 
-| Module | Role |
-| ------ | ---- |
-| `url-normalize.ts` | Bookmark URL canonicalization |
-| `tags.ts` | Tag normalize, split, search fragments |
-| `search-parser.ts` | Linkding search grammar → AST |
-| `search-sql.ts` | AST → parameterized SQL (FTS5 when enabled) |
-| `auto-tagging.ts` | User rules on url / domain / title |
-| `netscape.ts` / `netscape-import.ts` | Export / import HTML |
-| `bundles.ts` | Bundle filter → search query |
-| `asset-access.ts` / `public-asset-access.ts` | Authorization for asset routes |
+| Module                                       | Role                                        |
+| -------------------------------------------- | ------------------------------------------- |
+| `url-normalize.ts`                           | Bookmark URL canonicalization               |
+| `tags.ts`                                    | Tag normalize, split, search fragments      |
+| `search-parser.ts`                           | Linkding search grammar → AST               |
+| `search-sql.ts`                              | AST → parameterized SQL (FTS5 when enabled) |
+| `auto-tagging.ts`                            | User rules on url / domain / title          |
+| `netscape.ts` / `netscape-import.ts`         | Export / import HTML                        |
+| `bundles.ts`                                 | Bundle filter → search query                |
+| `asset-access.ts` / `public-asset-access.ts` | Authorization for asset routes              |
 
 Markdown rendering for notes lives in `src/lib/markdown.ts` (used by UI, not under `domain/`).
 

@@ -10,11 +10,7 @@ async function createBundle(page: Page, name: string): Promise<void> {
 test.describe('bundle reorder', () => {
   test('reorders three bundles via up/down and persists on reload', async ({ page }) => {
     const unique = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-    const names = [
-      `Bundle A ${unique}`,
-      `Bundle B ${unique}`,
-      `Bundle C ${unique}`
-    ];
+    const names = [`Bundle A ${unique}`, `Bundle B ${unique}`, `Bundle C ${unique}`];
 
     for (const name of names) {
       await createBundle(page, name);

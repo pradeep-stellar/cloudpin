@@ -61,6 +61,7 @@
     <p class="description">{bookmark.description}</p>
   {/if}
   {#if hasNotes}
+    <!-- eslint-disable-next-line svelte/no-at-html-tags -- notesHtml is sanitized in renderMarkdown -->
     <div class="notes markdown">{@html notesHtml}</div>
   {/if}
   {#if bookmark.tag_names.length > 0}

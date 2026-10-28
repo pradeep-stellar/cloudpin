@@ -5,11 +5,9 @@
 
   let { data }: { data: PageData } = $props();
 
-  let orderedIds = $state<number[]>(data.bundles.map((b) => b.id));
-
-  $effect(() => {
-    orderedIds = data.bundles.map((b) => b.id);
-  });
+  // Writable $derived: resets to the server order whenever data.bundles
+  // changes, but moveUp/moveDown can still reassign it locally.
+  let orderedIds = $derived(data.bundles.map((b) => b.id));
 
   const orderedBundles = $derived(
     orderedIds

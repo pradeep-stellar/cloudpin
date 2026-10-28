@@ -36,6 +36,7 @@
   {#if b.notes?.trim()}
     <section>
       <h2>Notes</h2>
+      <!-- eslint-disable-next-line svelte/no-at-html-tags -- notesHtml is sanitized in renderMarkdown -->
       <div class="notes markdown">{@html notesHtml}</div>
     </section>
   {/if}
